@@ -1,0 +1,51 @@
+{
+  "name": "jev-offload-mcp",
+  "version": "0.2.0",
+  "description": "MCP server that lets any AI coding agent scan huge codebases with the Jev decision model on OpenRouter — locate bugs from symptoms, classify and filter files — without burning its own context",
+  "type": "module",
+  "bin": {
+    "jev-offload-mcp": "src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "README.ru.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "ignore": "^7.0.12",
+    "tinyglobby": "^0.2.15",
+    "zod": "^4.6.7"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "openrouter",
+    "jev",
+    "classification",
+    "code-search",
+    "bug-localization",
+    "claude-code",
+    "cursor",
+    "codex",
+    "ai-agent"
+  ],
+  "author": "Gor Ohanyan (https://github.com/GorOhanyan)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GorOhanyan/jev-offload-mcp.git"
+  },
+  "homepage": "https://github.com/GorOhanyan/jev-offload-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/GorOhanyan/jev-offload-mcp/issues"
+  }
+}
