@@ -108,7 +108,7 @@ Files ranking:
 ...
 
 ---
-files: 88 | ~source tokens: 268700 | chunks: 108 | windows: 48 | jev calls: 156 | cost: $0.01175
+files: 88 | ~source tokens: 268700 | chunks: 108 | windows: 48 | model calls: 156 | cost: $0.01175
 ```
 
 </details>

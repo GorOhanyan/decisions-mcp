@@ -10,7 +10,7 @@ function newStats() {
 
 export function formatStats(stats, extra = {}) {
   const parts = Object.entries(extra).map(([k, v]) => `${k}: ${v}`);
-  parts.push(`jev calls: ${stats.calls}`, `tokens in: ${stats.prompt}`);
+  parts.push(`model calls: ${stats.calls}`, `tokens in: ${stats.prompt}`);
   if (stats.cost) parts.push(`cost: $${stats.cost.toFixed(5)}`);
   if (stats.models.size) parts.push(`model: ${[...stats.models].join(", ")}`);
   return parts.join(" | ");
