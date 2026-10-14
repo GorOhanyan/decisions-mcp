@@ -1,12 +1,12 @@
 <div align="center">
 
-# jev-offload-mcp
+# decisions-mcp
 
 **Let your AI agent scan huge codebases for a fraction of a cent — without reading them.**
 
 An [MCP](https://modelcontextprotocol.io) server that gives any coding agent — Claude Code, Claude Desktop, Cursor, VS Code, Codex, Windsurf — access to tiny **decision models** on OpenRouter: [Jev](https://openrouter.ai/typesafe/jev-1.13) by default, [Cloudflare Clef](https://openrouter.ai/cloudflare/clef), Mercury Decide, Liquid D1 and every other model behind the [Decisions API](https://openrouter.ai/docs). The agent describes what it's looking for; the model sifts through every line and points to the exact spot.
 
-[![CI](https://github.com/GorOhanyan/jev-offload-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GorOhanyan/jev-offload-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-stdio-6E56CF)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -115,30 +115,30 @@ files: 88 | ~source tokens: 268700 | chunks: 108 | windows: 48 | model calls: 15
 
 ## Any decision model
 
-Every tool takes a `model` argument, and `JEV_MODEL` sets the default. The server adapts to each model automatically:
+Every tool takes a `model` argument, and `DECISIONS_MODEL` sets the default. The server adapts to each model automatically:
 
 - **Context size** is read from OpenRouter's catalog, and chunks are sized to fit — from 8k-token models like `jaredpalmer/kev-4b` to 1M-token ones.
 - **Request quirks** are learned from the first rejection and remembered: models that want `state` as a string (ScaleDown, Respan) or accept only yes/no questions with plain-string criteria (Respan) just work.
-- **Fallbacks**: list backups in `JEV_FALLBACK_MODELS`, and they take over if the primary model fails.
+- **Fallbacks**: list backups in `DECISIONS_FALLBACK_MODELS`, and they take over if the primary model fails.
 
 ## Install
 
 You need **Node.js 18+** and a regular **OpenRouter API key** — [openrouter.ai/keys](https://openrouter.ai/keys) (a management/provisioning key won't work).
 
 ```bash
-git clone https://github.com/GorOhanyan/jev-offload-mcp.git
-cd jev-offload-mcp && npm install
+git clone https://github.com/GorOhanyan/decisions-mcp.git
+cd decisions-mcp && npm install
 ```
 
-Every config below runs `node /ABS/PATH/jev-offload-mcp/src/index.js`. Desktop apps often don't see your shell `PATH`, so use the absolute path to `node` (`which node`) if `node` alone doesn't start.
+Every config below runs `node /ABS/PATH/decisions-mcp/src/index.js`. Desktop apps often don't see your shell `PATH`, so use the absolute path to `node` (`which node`) if `node` alone doesn't start.
 
-Or skip the clone and let npx fetch it from GitHub: use `"command": "npx"`, `"args": ["-y", "github:GorOhanyan/jev-offload-mcp"]`.
+Or skip the clone and let npx fetch it from GitHub: use `"command": "npx"`, `"args": ["-y", "github:GorOhanyan/decisions-mcp"]`.
 
 <details open>
 <summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add jev --scope user -e OPENROUTER_API_KEY=sk-or-... -- node /ABS/PATH/jev-offload-mcp/src/index.js
+claude mcp add decisions --scope user -e OPENROUTER_API_KEY=sk-or-... -- node /ABS/PATH/decisions-mcp/src/index.js
 ```
 
 </details>
@@ -151,9 +151,9 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 ```json
 {
   "mcpServers": {
-    "jev": {
+    "decisions": {
       "command": "node",
-      "args": ["/ABS/PATH/jev-offload-mcp/src/index.js"],
+      "args": ["/ABS/PATH/decisions-mcp/src/index.js"],
       "env": { "OPENROUTER_API_KEY": "sk-or-..." }
     }
   }
@@ -168,9 +168,9 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 ```json
 {
   "mcpServers": {
-    "jev": {
+    "decisions": {
       "command": "node",
-      "args": ["/ABS/PATH/jev-offload-mcp/src/index.js"],
+      "args": ["/ABS/PATH/decisions-mcp/src/index.js"],
       "env": { "OPENROUTER_API_KEY": "sk-or-..." }
     }
   }
@@ -190,10 +190,10 @@ Same format for **Windsurf** (`~/.codeium/windsurf/mcp_config.json`).
     { "type": "promptString", "id": "openrouter-key", "description": "OpenRouter API key", "password": true }
   ],
   "servers": {
-    "jev": {
+    "decisions": {
       "type": "stdio",
       "command": "node",
-      "args": ["/ABS/PATH/jev-offload-mcp/src/index.js"],
+      "args": ["/ABS/PATH/decisions-mcp/src/index.js"],
       "env": { "OPENROUTER_API_KEY": "${input:openrouter-key}" }
     }
   }
@@ -206,12 +206,12 @@ Same format for **Windsurf** (`~/.codeium/windsurf/mcp_config.json`).
 <summary><b>Codex</b> — <code>~/.codex/config.toml</code></summary>
 
 ```toml
-[mcp_servers.jev]
+[mcp_servers.decisions]
 command = "node"
-args = ["/ABS/PATH/jev-offload-mcp/src/index.js"]
+args = ["/ABS/PATH/decisions-mcp/src/index.js"]
 tool_timeout_sec = 300
 
-[mcp_servers.jev.env]
+[mcp_servers.decisions.env]
 OPENROUTER_API_KEY = "sk-or-..."
 ```
 
@@ -223,25 +223,27 @@ The server ships MCP `instructions` telling the agent when to call it, but a lin
 
 ```text
 When you need to find something in a lot of code or text (a bug from its symptoms, where a feature
-is implemented, where a setting lives) or triage many files — use the jev MCP first
+is implemented, where a setting lives) or triage many files — use the decisions MCP first
 (locate_in_files / classify_files / decide_files), then read only the lines it points to.
 ```
 
 ## Configuration
 
+The old `JEV_*` names (from when the project was called jev-offload-mcp) are still accepted.
+
 | Variable | Default | Description |
 |---|---|---|
 | `OPENROUTER_API_KEY` | — | **Required** |
-| `JEV_MODEL` | `typesafe/jev-1.13` | Default decision model (any id from `list_models`) |
-| `JEV_FALLBACK_MODELS` | — | Comma-separated backups tried in order if the primary fails |
-| `JEV_CONCURRENCY` | `8` | Parallel requests to Jev |
-| `JEV_BASE_DIR` | workspace root from MCP roots, else cwd | What relative paths resolve against |
-| `JEV_ALLOWED_ROOTS` | — | Restrict reading to these directories (`:`-separated) |
-| `JEV_MAX_FILE_BYTES` / `JEV_MAX_FILES` | `1000000` / `2000` | Limits for file collection |
-| `JEV_ALLOW_SECRETS` | — | `1` stops excluding `.env`, keys etc. (not recommended) |
-| `JEV_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Decisions API endpoint |
-| `JEV_MODELS_URL` | OpenRouter decision-model catalog | Where context sizes and prices are read from |
-| `JEV_TIMEOUT_MS` | `120000` | Per-request timeout |
+| `DECISIONS_MODEL` | `typesafe/jev-1.13` | Default decision model (any id from `list_models`) |
+| `DECISIONS_FALLBACK_MODELS` | — | Comma-separated backups tried in order if the primary fails |
+| `DECISIONS_CONCURRENCY` | `8` | Parallel requests to Jev |
+| `DECISIONS_BASE_DIR` | workspace root from MCP roots, else cwd | What relative paths resolve against |
+| `DECISIONS_ALLOWED_ROOTS` | — | Restrict reading to these directories (`:`-separated) |
+| `DECISIONS_MAX_FILE_BYTES` / `DECISIONS_MAX_FILES` | `1000000` / `2000` | Limits for file collection |
+| `DECISIONS_ALLOW_SECRETS` | — | `1` stops excluding `.env`, keys etc. (not recommended) |
+| `DECISIONS_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Decisions API endpoint |
+| `DECISIONS_MODELS_URL` | OpenRouter decision-model catalog | Where context sizes and prices are read from |
+| `DECISIONS_TIMEOUT_MS` | `120000` | Per-request timeout |
 
 ## What never leaves your machine
 

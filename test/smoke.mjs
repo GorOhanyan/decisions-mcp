@@ -1,4 +1,4 @@
-// End-to-end smoke test: real MCP client <-> jev-offload-mcp over stdio, with a mock OpenRouter Decisions API.
+// End-to-end smoke test: real MCP client <-> decisions-mcp over stdio, with a mock OpenRouter Decisions API.
 import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
@@ -65,9 +65,9 @@ fs.writeFileSync(path.join(dir, "img.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47,
 const env = {
   ...process.env,
   OPENROUTER_API_KEY: "test",
-  JEV_DECISIONS_URL: `http://127.0.0.1:${mock.address().port}/api/alpha/decisions`,
-  JEV_MODELS_URL: `http://127.0.0.1:${mock.address().port}/api/v1/models`,
-  JEV_BASE_DIR: dir,
+  DECISIONS_DECISIONS_URL: `http://127.0.0.1:${mock.address().port}/api/alpha/decisions`,
+  DECISIONS_MODELS_URL: `http://127.0.0.1:${mock.address().port}/api/v1/models`,
+  DECISIONS_BASE_DIR: dir,
 };
 const start = async (client, e = env) => {
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [server], env: e }));
@@ -162,17 +162,17 @@ assert.equal(r.isError, true);
 assert.match(r.text, /supports only yes\/no questions/, r.text);
 await client.close();
 
-// fallback model takes over when the primary fails
+// fallback model takes over when the primary fails (legacy JEV_* variable names still work)
 const client3 = new Client({ name: "smoke3", version: "0" });
 const call3 = await start(client3, { ...env, JEV_MODEL: "broken/model", JEV_FALLBACK_MODELS: "typesafe/jev-1.13" });
 r = await call3("classify_files", { paths: ["README.md"], labels: ["code", "docs"] });
 assert.match(r.text, /## docs \(1\)[\s\S]*model: typesafe\/jev-1\.13/, r.text);
 await client3.close();
 
-// workspace root from MCP roots when JEV_BASE_DIR is unset
+// workspace root from MCP roots when DECISIONS_BASE_DIR is unset
 const client2 = new Client({ name: "smoke2", version: "0" }, { capabilities: { roots: {} } });
 client2.setRequestHandler(ListRootsRequestSchema, () => ({ roots: [{ uri: `file://${path.join(dir, "src")}` }] }));
-const { JEV_BASE_DIR, ...envNoBase } = env;
+const { DECISIONS_BASE_DIR, ...envNoBase } = env;
 const call2 = await start(client2, envNoBase);
 r = await call2("classify_files", { paths: ["a.js"], labels: ["code", "docs"] });
 assert.match(r.text, /- a\.js \[0\.97\]/, r.text);

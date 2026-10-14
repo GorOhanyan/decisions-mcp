@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 — 2026-10-14
+
+- Renamed from `jev-offload-mcp` to `decisions-mcp`: the server works with any OpenRouter decision model, not only Jev.
+- Settings are now `DECISIONS_*`; the old `JEV_*` names still work.
+
 ## 0.3.0 — 2026-10-14
 
 - Works with any OpenRouter decision model, not just Jev: Cloudflare Clef, Mercury Decide, Liquid D1, Microsoft Decision, Perplexity Decider, Drex, Solar Decide, GPT-6 Luna Decisions, ScaleDown, Respan and others.

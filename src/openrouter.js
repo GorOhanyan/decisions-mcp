@@ -1,3 +1,5 @@
+import { env } from "./env.js";
+
 // Decision models (Jev, Clef, Mercury Decide, ...) return typed choices with probabilities, not text,
 // and are served only by OpenRouter's Decisions API (not chat/completions).
 const DEFAULT_MODEL = "typesafe/jev-1.13";
@@ -8,12 +10,12 @@ export function config() {
   const list = (v) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
   return {
     apiKey: process.env.OPENROUTER_API_KEY,
-    url: process.env.JEV_DECISIONS_URL || "https://openrouter.ai/api/alpha/decisions",
-    modelsUrl: process.env.JEV_MODELS_URL || "https://openrouter.ai/api/v1/models?output_modalities=decisions",
-    model: process.env.JEV_MODEL || DEFAULT_MODEL,
-    fallbacks: list(process.env.JEV_FALLBACK_MODELS),
-    concurrency: Number(process.env.JEV_CONCURRENCY) || 8,
-    timeoutMs: Number(process.env.JEV_TIMEOUT_MS) || 120_000,
+    url: env("DECISIONS_URL") || "https://openrouter.ai/api/alpha/decisions",
+    modelsUrl: env("MODELS_URL") || "https://openrouter.ai/api/v1/models?output_modalities=decisions",
+    model: env("MODEL") || DEFAULT_MODEL,
+    fallbacks: list(env("FALLBACK_MODELS")),
+    concurrency: Number(env("CONCURRENCY")) || 8,
+    timeoutMs: Number(env("TIMEOUT_MS")) || 120_000,
   };
 }
 
@@ -110,7 +112,7 @@ function learnQuirk(model, raw, questions, sent) {
 }
 
 /**
- * One Decisions API request, with fallback to JEV_FALLBACK_MODELS when the primary model fails.
+ * One Decisions API request, with fallback to DECISIONS_FALLBACK_MODELS when the primary model fails.
  * `questions`: { key: { type: "choice"|"noul"|"score", instructions, criteria } }, `state`: { key: string }.
  * Returns { answers, model, usage: {prompt, completion, cost} }.
  */
@@ -146,8 +148,8 @@ async function decideWith(cfg, model, questions, state, signal) {
         headers: {
           Authorization: `Bearer ${cfg.apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://github.com/GorOhanyan/jev-offload-mcp",
-          "X-Title": "jev-offload-mcp",
+          "HTTP-Referer": "https://github.com/GorOhanyan/decisions-mcp",
+          "X-Title": "decisions-mcp",
         },
         body: JSON.stringify(adaptBody(model, questions, state)),
         signal: ctrl.signal,

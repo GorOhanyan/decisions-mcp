@@ -1,12 +1,12 @@
 <div align="center">
 
-# jev-offload-mcp
+# decisions-mcp
 
 **ИИ-агент просматривает огромные кодовые базы за доли цента — не читая их сам.**
 
 [MCP](https://modelcontextprotocol.io)-сервер, который даёт любому агенту — Claude Code, Claude Desktop, Cursor, VS Code, Codex, Windsurf — доступ к маленьким **decision-моделям** на OpenRouter: по умолчанию [Jev](https://openrouter.ai/typesafe/jev-1.13), а также [Cloudflare Clef](https://openrouter.ai/cloudflare/clef), Mercury Decide, Liquid D1 и любая другая модель Decisions API. Агент описывает, что ищет; модель просеивает каждую строку и указывает точное место.
 
-[![CI](https://github.com/GorOhanyan/jev-offload-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GorOhanyan/jev-offload-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-stdio-6E56CF)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -84,30 +84,30 @@ flowchart LR
 
 ## Любая decision-модель
 
-У каждого инструмента есть аргумент `model`, а `JEV_MODEL` задаёт модель по умолчанию. Сервер сам подстраивается под модель:
+У каждого инструмента есть аргумент `model`, а `DECISIONS_MODEL` задаёт модель по умолчанию. Сервер сам подстраивается под модель:
 
 - **Размер контекста** берётся из каталога OpenRouter, куски режутся под него — от моделей на 8k токенов вроде `jaredpalmer/kev-4b` до моделей на 1M.
 - **Особенности API** запоминаются после первого отказа: модели, которым нужен `state` строкой (ScaleDown, Respan) или только вопросы да/нет со строковыми критериями (Respan), работают без настройки.
-- **Резервные модели**: перечислите их в `JEV_FALLBACK_MODELS` — они подхватят, если основная модель упала.
+- **Резервные модели**: перечислите их в `DECISIONS_FALLBACK_MODELS` — они подхватят, если основная модель упала.
 
 ## Установка
 
 Нужны **Node.js 18+** и обычный **API-ключ OpenRouter** — [openrouter.ai/keys](https://openrouter.ai/keys) (management/provisioning-ключ не подойдёт).
 
 ```bash
-git clone https://github.com/GorOhanyan/jev-offload-mcp.git
-cd jev-offload-mcp && npm install
+git clone https://github.com/GorOhanyan/decisions-mcp.git
+cd decisions-mcp && npm install
 ```
 
-Во всех конфигах ниже запускается `node /ABS/PATH/jev-offload-mcp/src/index.js`. Десктопные приложения часто не видят `PATH` из терминала — если просто `node` не стартует, укажите абсолютный путь (`which node`).
+Во всех конфигах ниже запускается `node /ABS/PATH/decisions-mcp/src/index.js`. Десктопные приложения часто не видят `PATH` из терминала — если просто `node` не стартует, укажите абсолютный путь (`which node`).
 
-Или без клонирования, через npx прямо с GitHub: `"command": "npx"`, `"args": ["-y", "github:GorOhanyan/jev-offload-mcp"]`.
+Или без клонирования, через npx прямо с GitHub: `"command": "npx"`, `"args": ["-y", "github:GorOhanyan/decisions-mcp"]`.
 
 <details open>
 <summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add jev --scope user -e OPENROUTER_API_KEY=sk-or-... -- node /ABS/PATH/jev-offload-mcp/src/index.js
+claude mcp add decisions --scope user -e OPENROUTER_API_KEY=sk-or-... -- node /ABS/PATH/decisions-mcp/src/index.js
 ```
 
 </details>
@@ -120,9 +120,9 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 ```json
 {
   "mcpServers": {
-    "jev": {
+    "decisions": {
       "command": "node",
-      "args": ["/ABS/PATH/jev-offload-mcp/src/index.js"],
+      "args": ["/ABS/PATH/decisions-mcp/src/index.js"],
       "env": { "OPENROUTER_API_KEY": "sk-or-..." }
     }
   }
@@ -137,9 +137,9 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 ```json
 {
   "mcpServers": {
-    "jev": {
+    "decisions": {
       "command": "node",
-      "args": ["/ABS/PATH/jev-offload-mcp/src/index.js"],
+      "args": ["/ABS/PATH/decisions-mcp/src/index.js"],
       "env": { "OPENROUTER_API_KEY": "sk-or-..." }
     }
   }
@@ -159,10 +159,10 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
     { "type": "promptString", "id": "openrouter-key", "description": "OpenRouter API key", "password": true }
   ],
   "servers": {
-    "jev": {
+    "decisions": {
       "type": "stdio",
       "command": "node",
-      "args": ["/ABS/PATH/jev-offload-mcp/src/index.js"],
+      "args": ["/ABS/PATH/decisions-mcp/src/index.js"],
       "env": { "OPENROUTER_API_KEY": "${input:openrouter-key}" }
     }
   }
@@ -175,12 +175,12 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 <summary><b>Codex</b> — <code>~/.codex/config.toml</code></summary>
 
 ```toml
-[mcp_servers.jev]
+[mcp_servers.decisions]
 command = "node"
-args = ["/ABS/PATH/jev-offload-mcp/src/index.js"]
+args = ["/ABS/PATH/decisions-mcp/src/index.js"]
 tool_timeout_sec = 300
 
-[mcp_servers.jev.env]
+[mcp_servers.decisions.env]
 OPENROUTER_API_KEY = "sk-or-..."
 ```
 
@@ -192,25 +192,27 @@ OPENROUTER_API_KEY = "sk-or-..."
 
 ```text
 Если нужно найти что-то в большом объёме кода/текста (баг по симптомам, где реализована фича,
-где настройка) или разобрать много файлов — сначала используй MCP jev
+где настройка) или разобрать много файлов — сначала используй MCP decisions
 (locate_in_files / classify_files / decide_files), потом читай только строки, на которые он указал.
 ```
 
 ## Настройки
 
+Старые имена `JEV_*` (проект раньше назывался jev-offload-mcp) по-прежнему работают.
+
 | Переменная | По умолчанию | Описание |
 |---|---|---|
 | `OPENROUTER_API_KEY` | — | **Обязательно** |
-| `JEV_MODEL` | `typesafe/jev-1.13` | Модель по умолчанию (любой id из `list_models`) |
-| `JEV_FALLBACK_MODELS` | — | Резервные модели через запятую, пробуются по очереди |
-| `JEV_CONCURRENCY` | `8` | Параллельных запросов к Jev |
-| `JEV_BASE_DIR` | корень воркспейса из MCP roots, иначе cwd | От чего считать относительные пути |
-| `JEV_ALLOWED_ROOTS` | — | Ограничить чтение этими каталогами (через `:`) |
-| `JEV_MAX_FILE_BYTES` / `JEV_MAX_FILES` | `1000000` / `2000` | Лимиты на сбор файлов |
-| `JEV_ALLOW_SECRETS` | — | `1` — не исключать `.env`, ключи и т.п. (не рекомендуется) |
-| `JEV_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Endpoint Decisions API |
-| `JEV_MODELS_URL` | каталог decision-моделей OpenRouter | Откуда берутся размеры контекста и цены |
-| `JEV_TIMEOUT_MS` | `120000` | Таймаут одного запроса |
+| `DECISIONS_MODEL` | `typesafe/jev-1.13` | Модель по умолчанию (любой id из `list_models`) |
+| `DECISIONS_FALLBACK_MODELS` | — | Резервные модели через запятую, пробуются по очереди |
+| `DECISIONS_CONCURRENCY` | `8` | Параллельных запросов к Jev |
+| `DECISIONS_BASE_DIR` | корень воркспейса из MCP roots, иначе cwd | От чего считать относительные пути |
+| `DECISIONS_ALLOWED_ROOTS` | — | Ограничить чтение этими каталогами (через `:`) |
+| `DECISIONS_MAX_FILE_BYTES` / `DECISIONS_MAX_FILES` | `1000000` / `2000` | Лимиты на сбор файлов |
+| `DECISIONS_ALLOW_SECRETS` | — | `1` — не исключать `.env`, ключи и т.п. (не рекомендуется) |
+| `DECISIONS_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Endpoint Decisions API |
+| `DECISIONS_MODELS_URL` | каталог decision-моделей OpenRouter | Откуда берутся размеры контекста и цены |
+| `DECISIONS_TIMEOUT_MS` | `120000` | Таймаут одного запроса |
 
 ## Что никогда не уходит с машины
 

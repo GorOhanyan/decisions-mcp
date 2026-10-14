@@ -6,6 +6,7 @@ import { z } from "zod";
 import { collectFiles } from "./files.js";
 import { classify, decideFiles, locate, estTokens, formatStats } from "./decisions.js";
 import { config, listDecisionModels } from "./openrouter.js";
+import { env } from "./env.js";
 
 const INSTRUCTIONS = `Scans large amounts of text with a tiny, very cheap decision model on OpenRouter (Jev by default; Clef, Mercury Decide and others work too) so you don't have to read it yourself.
 Decision models don't write text — they score and pick. Use them to narrow down WHERE to look, then read only the lines they point to:
@@ -51,10 +52,10 @@ function skippedSummary(skipped, limit = 15) {
   return `\nSkipped ${skipped.length} file(s):\n${lines.join("\n")}`;
 }
 
-// Relative paths resolve against JEV_BASE_DIR, else the client's first workspace root, else cwd.
+// Relative paths resolve against DECISIONS_BASE_DIR, else the client's first workspace root, else cwd.
 let rootsBaseDir;
 async function baseDir() {
-  if (process.env.JEV_BASE_DIR) return process.env.JEV_BASE_DIR;
+  if (env("BASE_DIR")) return env("BASE_DIR");
   if (rootsBaseDir === undefined) {
     rootsBaseDir = null;
     if (server.server.getClientCapabilities()?.roots) {
@@ -93,11 +94,11 @@ async function guarded(fn) {
   try {
     return await fn();
   } catch (e) {
-    return fail(`jev-offload-mcp error: ${e.message}`);
+    return fail(`decisions-mcp error: ${e.message}`);
   }
 }
 
-const server = new McpServer({ name: "jev", version: "0.3.0" }, { instructions: INSTRUCTIONS });
+const server = new McpServer({ name: "decisions-mcp", version: "0.4.0" }, { instructions: INSTRUCTIONS });
 
 server.registerTool(
   "locate_in_files",
@@ -316,4 +317,4 @@ server.registerTool(
 );
 
 await server.connect(new StdioServerTransport());
-if (!config().apiKey) console.error("[jev-offload-mcp] warning: OPENROUTER_API_KEY is not set — tool calls will fail");
+if (!config().apiKey) console.error("[decisions-mcp] warning: OPENROUTER_API_KEY is not set — tool calls will fail");

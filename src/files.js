@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { glob } from "tinyglobby";
 import ignore from "ignore";
+import { env } from "./env.js";
 
-// Skipped in directory scans (never sent to the remote model) unless JEV_ALLOW_SECRETS=1.
+// Skipped in directory scans (never sent to the remote model) unless DECISIONS_ALLOW_SECRETS=1.
 const SECRET_PATTERNS = [
   "**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/*.p12", "**/*.pfx", "**/*.keystore",
   "**/id_rsa*", "**/id_ed25519*", "**/id_ecdsa*", "**/.npmrc", "**/.pypirc", "**/.netrc",
@@ -46,14 +47,14 @@ function displayPath(baseDir, abs) {
 }
 
 function checkAllowed(absPath) {
-  const roots = (process.env.JEV_ALLOWED_ROOTS || "")
+  const roots = (env("ALLOWED_ROOTS") || "")
     .split(path.delimiter)
     .map((r) => r.trim())
     .filter(Boolean)
     .map((r) => path.resolve(r));
   if (!roots.length) return;
   const ok = roots.some((r) => absPath === r || absPath.startsWith(r + path.sep));
-  if (!ok) throw new Error(`Path ${absPath} is outside JEV_ALLOWED_ROOTS`);
+  if (!ok) throw new Error(`Path ${absPath} is outside DECISIONS_ALLOWED_ROOTS`);
 }
 
 /**
@@ -66,13 +67,13 @@ export async function collectFiles({
   include = ["**/*"],
   exclude = [],
   respectGitignore = true,
-  maxFileBytes = Number(process.env.JEV_MAX_FILE_BYTES) || 1_000_000,
-  maxFiles = Number(process.env.JEV_MAX_FILES) || 2000,
+  maxFileBytes = Number(env("MAX_FILE_BYTES")) || 1_000_000,
+  maxFiles = Number(env("MAX_FILES")) || 2000,
 }) {
   const files = [];
   const skipped = [];
   const seen = new Set();
-  const allowSecrets = process.env.JEV_ALLOW_SECRETS === "1";
+  const allowSecrets = env("ALLOW_SECRETS") === "1";
 
   const candidates = [];
   for (const p of paths) {

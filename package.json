@@ -1,10 +1,10 @@
 {
-  "name": "jev-offload-mcp",
-  "version": "0.3.0",
+  "name": "decisions-mcp",
+  "version": "0.4.0",
   "description": "MCP server that lets any AI coding agent scan huge codebases with OpenRouter decision models (Jev, Clef, Mercury Decide, \u2026) \u2014 locate bugs from symptoms, classify and filter files \u2014 without burning its own context",
   "type": "module",
   "bin": {
-    "jev-offload-mcp": "src/index.js"
+    "decisions-mcp": "src/index.js"
   },
   "files": [
     "src",
@@ -46,10 +46,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GorOhanyan/jev-offload-mcp.git"
+    "url": "git+https://github.com/GorOhanyan/decisions-mcp.git"
   },
-  "homepage": "https://github.com/GorOhanyan/jev-offload-mcp#readme",
+  "homepage": "https://github.com/GorOhanyan/decisions-mcp#readme",
   "bugs": {
-    "url": "https://github.com/GorOhanyan/jev-offload-mcp/issues"
+    "url": "https://github.com/GorOhanyan/decisions-mcp/issues"
   }
 }
