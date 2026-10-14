@@ -1,7 +1,7 @@
 {
   "name": "jev-offload-mcp",
-  "version": "0.2.0",
-  "description": "MCP server that lets any AI coding agent scan huge codebases with the Jev decision model on OpenRouter — locate bugs from symptoms, classify and filter files — without burning its own context",
+  "version": "0.3.0",
+  "description": "MCP server that lets any AI coding agent scan huge codebases with OpenRouter decision models (Jev, Clef, Mercury Decide, \u2026) \u2014 locate bugs from symptoms, classify and filter files \u2014 without burning its own context",
   "type": "module",
   "bin": {
     "jev-offload-mcp": "src/index.js"
@@ -17,7 +17,8 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs",
+    "bench": "node bench/run.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
@@ -36,7 +37,10 @@
     "claude-code",
     "cursor",
     "codex",
-    "ai-agent"
+    "ai-agent",
+    "decision-models",
+    "clef",
+    "cloudflare"
   ],
   "author": "Gor Ohanyan (https://github.com/GorOhanyan)",
   "license": "MIT",

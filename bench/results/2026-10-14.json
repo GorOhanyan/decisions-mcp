@@ -1,0 +1,1749 @@
+{
+  "meta": {
+    "date": "2026-10-14",
+    "corpus": "@modelcontextprotocol/sdk@1.32.1 dist/esm",
+    "files": 87,
+    "approxTokens": 230286,
+    "bugs": 6,
+    "facts": [
+      "calls_fetch",
+      "defines_class",
+      "throws",
+      "uses_timers",
+      "uses_zod",
+      "async_code"
+    ]
+  },
+  "results": [
+    {
+      "model": "typesafe/jev-1.13",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 4,
+        "line3": 5,
+        "cost": 0.06579783,
+        "ms": 45143,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.96",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.60",
+              "examples/server/elicitationUrlExample.js:151-190 0.58"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.84",
+              "server/stdio.js:1-40 0.52",
+              "client/stdio.js:61-100 0.51"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "shared/protocol.js:181-220 0.75",
+              "shared/protocol.js:1-40 0.72",
+              "shared/protocol.js:717-756 0.71"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.69",
+              "server/mcp.js:620-659 0.26",
+              "server/mcp.js:31-70 0.19"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.96",
+              "server/middleware/hostHeaderValidation.js:31-70 0.59",
+              "shared/transport.js:31-70 0.57"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.93",
+              "client/auth.js:241-280 0.71",
+              "examples/server/simpleStreamableHttp.js:546-585 0.71"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9770114942528736,
+        "macroF1": 0.9148617511520737,
+        "perQuestion": {
+          "calls_fetch": 0.571,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 0.95,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "cost": 0.006411426000000002,
+        "ms": 4286,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.8732394366197183,
+        "n": 71,
+        "cost": 0.005273352000000003,
+        "ms": 3627,
+        "errors": 0
+      }
+    },
+    {
+      "model": "cloudflare/clef",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 6,
+        "line3": 6,
+        "cost": 0.07642954199999998,
+        "ms": 120523,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.95",
+              "client/auth.js:361-398 0.70",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.58"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.91",
+              "server/stdio.js:1-40 0.84",
+              "client/stdio.js:61-100 0.77"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.92",
+              "shared/protocol.js:181-220 0.80",
+              "shared/protocol.js:717-756 0.74"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/mcp.js:680-719 0.81",
+              "server/mcp.js:740-779 0.73",
+              "server/mcp.js:620-659 0.10"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.85",
+              "server/webStandardStreamableHttp.js:151-190 0.82",
+              "shared/transport.js:31-70 0.75"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.88",
+              "server/auth/middleware/bearerAuth.js:31-70 0.85",
+              "examples/server/demoInMemoryOAuthProvider.js:61-100 0.81"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9923371647509579,
+        "macroF1": 0.9665406278309504,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 0.974,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "cost": 0.007113888000000001,
+        "ms": 9384,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.8309859154929577,
+        "n": 71,
+        "cost": 0.005342813999999998,
+        "ms": 8982,
+        "errors": 0
+      }
+    },
+    {
+      "model": "cloudflare/clef-flash",
+      "locate": {
+        "file1": 5,
+        "file3": 6,
+        "line1": 3,
+        "line3": 5,
+        "cost": 0.035618192,
+        "ms": 64989,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.74",
+              "client/auth.js:331-370 0.54",
+              "client/middleware.js:1-40 0.50"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.86",
+              "server/stdio.js:1-40 0.52",
+              "client/stdio.js:181-194 0.48"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 3,
+            "top": [
+              "shared/protocol.js:181-220 0.61",
+              "shared/protocol.js:717-756 0.55",
+              "shared/protocol.js:1-40 0.23"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.34",
+              "server/mcp.js:620-659 0.32",
+              "server/mcp.js:1-40 0.26"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.89",
+              "server/auth/handlers/metadata.js:1-15 0.72",
+              "server/webStandardStreamableHttp.js:151-190 0.62"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 2,
+            "lineRank": 2,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:1-40 0.72",
+              "shared/auth-utils.js:1-40 0.46",
+              "client/auth.js:409-448 0.34"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9712643678160919,
+        "macroF1": 0.9220515573172579,
+        "perQuestion": {
+          "calls_fetch": 0.923,
+          "defines_class": 1,
+          "throws": 0.914,
+          "uses_timers": 1,
+          "uses_zod": 0.696,
+          "async_code": 1
+        },
+        "cost": 0.0039166980000000014,
+        "ms": 5354,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.6901408450704225,
+        "n": 71,
+        "cost": 0.0029909419999999986,
+        "ms": 4918,
+        "errors": 0
+      }
+    },
+    {
+      "model": "cloudflare/clef-omni",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 3,
+        "line3": 5,
+        "cost": 0.21318165000000003,
+        "ms": 42743,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.97",
+              "client/middleware.js:31-70 0.73",
+              "client/streamableHttp.js:331-370 0.49"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.89",
+              "server/stdio.js:1-40 0.81",
+              "client/stdio.js:61-100 0.77"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 3,
+            "top": [
+              "shared/protocol.js:717-756 0.78",
+              "shared/protocol.js:181-220 0.76",
+              "shared/protocol.js:1-40 0.59"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:590-629 0.47",
+              "server/mcp.js:530-569 0.26",
+              "server/mcp.js:650-689 0.20"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.93",
+              "server/sse.js:1-40 0.76",
+              "client/streamableHttp.js:1-40 0.61"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.93",
+              "shared/auth-utils.js:1-40 0.93",
+              "server/auth/handlers/revoke.js:31-59 0.70"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9923371647509579,
+        "macroF1": 0.9736659736659737,
+        "perQuestion": {
+          "calls_fetch": 0.923,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 0.919,
+          "uses_zod": 1,
+          "async_code": 1
+        },
+        "cost": 0.022935299999999992,
+        "ms": 3164,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7464788732394366,
+        "n": 71,
+        "cost": 0.017100449999999993,
+        "ms": 3095,
+        "errors": 0
+      }
+    },
+    {
+      "model": "inception/mercury-decide",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 6,
+        "line3": 6,
+        "cost": 0.026874240000000004,
+        "ms": 75287,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 1.00",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.16",
+              "client/auth.js:331-370 0.12"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.99",
+              "client/stdio.js:121-160 0.73",
+              "client/stdio.js:61-100 0.59"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.98",
+              "shared/protocol.js:717-756 0.68",
+              "shared/protocol.js:181-220 0.22"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/mcp.js:680-719 0.96",
+              "server/mcp.js:740-779 0.75",
+              "server/mcp.js:620-659 0.02"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 1.00",
+              "shared/transport.js:31-70 0.25",
+              "server/auth/handlers/metadata.js:1-15 0.18"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 1.00",
+              "server/auth/middleware/bearerAuth.js:1-40 0.92",
+              "examples/server/simpleStreamableHttp.js:516-555 0.32"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9904214559386973,
+        "macroF1": 0.9576719576719577,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.889,
+          "async_code": 1
+        },
+        "cost": 0.0022811999999999997,
+        "ms": 7607,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.8450704225352113,
+        "n": 71,
+        "cost": 0.002143380000000001,
+        "ms": 4741,
+        "errors": 0
+      }
+    },
+    {
+      "model": "liquid/d1",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 5,
+        "line3": 6,
+        "cost": 0.027380279999999993,
+        "ms": 44571,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.96",
+              "examples/server/simpleStreamableHttp.js:516-555 0.29",
+              "client/middleware.js:31-70 0.29"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.87",
+              "server/stdio.js:1-40 0.56",
+              "client/stdio.js:121-160 0.33"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 3,
+            "top": [
+              "shared/protocol.js:181-220 0.78",
+              "shared/protocol.js:717-756 0.64",
+              "shared/protocol.js:1-40 0.61"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/mcp.js:680-719 0.88",
+              "server/mcp.js:620-659 0.05",
+              "server/mcp.js:770-809 0.04"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.93",
+              "server/webStandardStreamableHttp.js:151-190 0.82",
+              "server/middleware/hostHeaderValidation.js:61-76 0.61"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.93",
+              "client/auth.js:241-280 0.65",
+              "client/auth.js:409-448 0.44"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9827586206896551,
+        "macroF1": 0.927956989247312,
+        "perQuestion": {
+          "calls_fetch": 0.6,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "cost": 0.014023260000000001,
+        "ms": 4991,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7183098591549296,
+        "n": 71,
+        "cost": 0.0021583799999999997,
+        "ms": 4808,
+        "errors": 0
+      }
+    },
+    {
+      "model": "microsoft/microsoft-decision-1",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 4,
+        "line3": 5,
+        "cost": 0.05598364800000001,
+        "ms": 48127,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.78",
+              "server/auth/errors.js:91-130 0.35",
+              "examples/server/elicitationUrlExample.js:151-190 0.20"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.98",
+              "server/stdio.js:31-70 0.75",
+              "client/stdio.js:151-190 0.65"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "shared/protocol.js:181-220 0.96",
+              "shared/protocol.js:1-40 0.90",
+              "shared/protocol.js:717-756 0.89"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.62",
+              "server/mcp.js:620-659 0.44",
+              "experimental/tasks/mcp-server.js:1-32 0.10"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 1.00",
+              "client/streamableHttp.js:470-492 0.88",
+              "examples/client/streamableHttpWithSseFallbackClient.js:61-100 0.78"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.98",
+              "server/auth/middleware/bearerAuth.js:31-70 0.89",
+              "examples/server/elicitationUrlExample.js:151-190 0.89"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9923371647509579,
+        "macroF1": 0.9612903225806452,
+        "perQuestion": {
+          "calls_fetch": 0.8,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "cost": 0.0054060299999999974,
+        "ms": 5615,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.8028169014084507,
+        "n": 71,
+        "cost": 0.0044066819999999994,
+        "ms": 3749,
+        "errors": 0
+      }
+    },
+    {
+      "model": "perplexity/pplx-decider-v1.1-27b",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 5,
+        "line3": 6,
+        "cost": 0.027917360000000002,
+        "ms": 50531,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 1.00",
+              "client/middleware.js:31-70 0.74",
+              "examples/server/simpleStreamableHttp.js:516-555 0.71"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.99",
+              "client/stdio.js:91-130 0.82",
+              "server/stdio.js:1-40 0.71"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.98",
+              "shared/protocol.js:717-756 0.96",
+              "shared/protocol.js:181-220 0.94"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "server/mcp.js:740-779 0.99",
+              "server/mcp.js:680-719 0.93",
+              "server/mcp.js:620-659 0.54"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 1.00",
+              "client/sse.js:1-40 0.72",
+              "server/sse.js:31-70 0.54"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 1.00",
+              "server/auth/middleware/bearerAuth.js:1-40 0.97",
+              "client/auth.js:241-280 0.92"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9923371647509579,
+        "macroF1": 0.9650793650793651,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.933,
+          "async_code": 1
+        },
+        "cost": 0.014228699999999995,
+        "ms": 10326,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.8450704225352113,
+        "n": 71,
+        "cost": 0.0021863199999999994,
+        "ms": 3786,
+        "errors": 0
+      }
+    },
+    {
+      "model": "nace-ai/drex-v2.0",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 5,
+        "line3": 6,
+        "cost": 0.07751616000000003,
+        "ms": 52187,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.98",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.87",
+              "examples/server/simpleStreamableHttp.js:516-555 0.60"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.84",
+              "server/stdio.js:1-40 0.60",
+              "client/stdio.js:181-194 0.57"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.85",
+              "shared/protocol.js:181-220 0.84",
+              "shared/protocol.js:717-756 0.80"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "server/mcp.js:740-779 0.94",
+              "server/mcp.js:680-719 0.83",
+              "examples/server/simpleStreamableHttp.js:1-40 0.57"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.97",
+              "shared/transport.js:61-100 0.73",
+              "server/express.js:1-40 0.66"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.94",
+              "server/auth/middleware/bearerAuth.js:31-70 0.91",
+              "examples/server/demoInMemoryOAuthProvider.js:61-100 0.91"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9865900383141762,
+        "macroF1": 0.9385964912280702,
+        "perQuestion": {
+          "calls_fetch": 0.632,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 1,
+          "async_code": 1
+        },
+        "cost": 0.007163639999999999,
+        "ms": 7358,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7183098591549296,
+        "n": 71,
+        "cost": 0.006055560000000002,
+        "ms": 3713,
+        "errors": 0
+      }
+    },
+    {
+      "model": "nace-ai/drex-v1.5",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 4,
+        "line3": 5,
+        "cost": 0.050876840000000007,
+        "ms": 48336,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.40",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.24",
+              "client/middleware.js:31-70 0.19"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "examples/server/progressExample.js:1-40 0.92",
+              "shared/stdio.js:1-40 0.91",
+              "client/stdio.js:121-160 0.90"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.68",
+              "shared/protocol.js:717-756 0.58",
+              "client/stdio.js:121-160 0.54"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.91",
+              "server/mcp.js:650-689 0.47",
+              "examples/server/simpleStreamableHttp.js:1-40 0.33"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.96",
+              "server/auth/handlers/metadata.js:1-15 0.78",
+              "server/middleware/hostHeaderValidation.js:1-40 0.77"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.98",
+              "examples/server/demoInMemoryOAuthProvider.js:121-160 0.96",
+              "examples/server/elicitationUrlExample.js:181-220 0.88"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9770114942528736,
+        "macroF1": 0.9131313131313131,
+        "perQuestion": {
+          "calls_fetch": 0.545,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.933,
+          "async_code": 1
+        },
+        "cost": 0.0047757599999999996,
+        "ms": 5915,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7605633802816901,
+        "n": 71,
+        "cost": 0.004037040000000001,
+        "ms": 4564,
+        "errors": 0
+      }
+    },
+    {
+      "model": "upstage/solar-decide-flash",
+      "locate": {
+        "file1": 1,
+        "file3": 2,
+        "line1": 1,
+        "line3": 1,
+        "cost": 0.08338189999999997,
+        "ms": 95911,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 10,
+            "lineRank": null,
+            "top": [
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.68",
+              "client/auth-extensions.js:61-100 0.57",
+              "client/auth.js:889-928 0.53"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 19,
+            "lineRank": null,
+            "top": [
+              "examples/client/simpleStreamableHttp.js:797-836 0.98",
+              "client/streamableHttp.js:361-399 0.97",
+              "examples/client/simpleStreamableHttp.js:407-446 0.97"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 6,
+            "lineRank": null,
+            "top": [
+              "examples/server/honoWebStandardStreamableHttp.js:31-60 0.95",
+              "examples/server/simpleSseServer.js:1-40 0.91",
+              "examples/server/ssePollingExample.js:61-100 0.91"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 2,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.96",
+              "server/mcp.js:620-659 0.95",
+              "server/zod-json-schema-compat.js:1-40 0.93"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.97",
+              "client/sse.js:181-219 0.95",
+              "client/streamableHttp.js:361-399 0.95"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 39,
+            "lineRank": null,
+            "top": [
+              "server/auth/router.js:61-100 0.97",
+              "examples/server/simpleStreamableHttp.js:516-555 0.97",
+              "server/auth/providers/proxyProvider.js:121-158 0.96"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9003831417624522,
+        "macroF1": 0.8295762108262109,
+        "perQuestion": {
+          "calls_fetch": 0.444,
+          "defines_class": 0.775,
+          "throws": 0.846,
+          "uses_timers": 0.974,
+          "uses_zod": 0.938,
+          "async_code": 1
+        },
+        "cost": 0.043780949999999964,
+        "ms": 12367,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.6619718309859155,
+        "n": 71,
+        "cost": 0.006411949999999999,
+        "ms": 7857,
+        "errors": 0
+      }
+    },
+    {
+      "model": "upstage/solar-decide",
+      "locate": {
+        "file1": 1,
+        "file3": 3,
+        "line1": 1,
+        "line3": 2,
+        "cost": 0.08387254999999998,
+        "ms": 542093,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "examples/server/simpleStreamableHttp.js:516-555 1.00",
+              "server/auth/middleware/bearerAuth.js:31-70 1.00",
+              "server/auth/providers/proxyProvider.js:121-158 1.00"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 19,
+            "lineRank": null,
+            "top": [
+              "server/webStandardStreamableHttp.js:651-690 0.98",
+              "client/streamableHttp.js:361-399 0.97",
+              "server/webStandardStreamableHttp.js:561-600 0.97"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 9,
+            "lineRank": null,
+            "top": [
+              "examples/server/simpleTaskInteractive.js:271-310 0.92",
+              "client/auth.js:829-868 0.92",
+              "examples/server/simpleSseServer.js:1-40 0.91"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 2,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:650-689 0.95",
+              "server/mcp.js:710-749 0.94",
+              "server/zod-json-schema-compat.js:1-40 0.92"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 2,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.98",
+              "client/sse.js:181-219 0.95",
+              "examples/server/sseAndStreamableHttpCompatibleServer.js:181-220 0.93"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 32,
+            "lineRank": null,
+            "top": [
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.97",
+              "server/auth/router.js:61-100 0.97",
+              "examples/server/simpleStreamableHttp.js:516-555 0.96"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9425287356321839,
+        "macroF1": 0.879425672709806,
+        "perQuestion": {
+          "calls_fetch": 0.522,
+          "defines_class": 0.873,
+          "throws": 0.907,
+          "uses_timers": 0.974,
+          "uses_zod": 1,
+          "async_code": 1
+        },
+        "cost": 0.04378094999999997,
+        "ms": 49968,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.6901408450704225,
+        "n": 71,
+        "cost": 0.006411949999999999,
+        "ms": 39003,
+        "errors": 0
+      }
+    },
+    {
+      "model": "openai/gpt-6-luna-decisions",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 6,
+        "line3": 6,
+        "cost": 0.14518139999999996,
+        "ms": 38665,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 1.00",
+              "client/middleware.js:1-40 0.21",
+              "client/sse.js:181-219 0.20"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.94",
+              "server/stdio.js:1-40 0.20",
+              "client/stdio.js:61-100 0.17"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.83",
+              "shared/protocol.js:717-756 0.55",
+              "shared/protocol.js:181-220 0.23"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/mcp.js:680-719 0.76",
+              "server/mcp.js:740-779 0.22",
+              "server/mcp.js:121-160 0.05"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.91",
+              "client/streamableHttp.js:301-340 0.10",
+              "client/streamableHttp.js:61-100 0.09"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 1.00",
+              "client/auth.js:379-418 0.37",
+              "examples/server/simpleStreamableHttp.js:516-555 0.35"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9674329501915708,
+        "macroF1": 0.8923715173715173,
+        "perQuestion": {
+          "calls_fetch": 0.545,
+          "defines_class": 1,
+          "throws": 0.977,
+          "uses_timers": 0.974,
+          "uses_zod": 0.857,
+          "async_code": 1
+        },
+        "cost": 0.0197015,
+        "ms": 4883,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7887323943661971,
+        "n": 71,
+        "cost": 0.011092799999999998,
+        "ms": 3004,
+        "errors": 0
+      }
+    },
+    {
+      "model": "togethercomputer/tev1-4b-experimental",
+      "locate": {
+        "file1": 4,
+        "file3": 4,
+        "line1": 3,
+        "line3": 4,
+        "cost": 0.059937486,
+        "ms": 48345,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.80",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.47",
+              "client/middleware.js:31-70 0.44"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 7,
+            "lineRank": null,
+            "top": [
+              "server/webStandardStreamableHttp.js:591-630 0.29",
+              "server/webStandardStreamableHttp.js:501-540 0.25",
+              "server/webStandardStreamableHttp.js:651-690 0.25"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 3,
+            "top": [
+              "shared/protocol.js:181-220 0.68",
+              "shared/protocol.js:717-756 0.56",
+              "shared/protocol.js:1-40 0.53"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/mcp.js:680-719 0.78",
+              "server/mcp.js:740-779 0.65",
+              "server/mcp.js:500-539 0.35"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.92",
+              "shared/transport.js:61-100 0.88",
+              "server/middleware/hostHeaderValidation.js:1-40 0.88"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 8,
+            "lineRank": null,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:1-40 0.59",
+              "examples/server/demoInMemoryOAuthProvider.js:121-160 0.47",
+              "client/auth.js:409-448 0.44"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9885057471264368,
+        "macroF1": 0.9601111596524441,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 0.984,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.929,
+          "async_code": 0.991
+        },
+        "cost": 0.029947805999999997,
+        "ms": 8907,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7323943661971831,
+        "n": 71,
+        "cost": 0.004648224000000001,
+        "ms": 3476,
+        "errors": 0
+      }
+    },
+    {
+      "model": "jaredpalmer/kev-4b",
+      "locate": {
+        "file1": 4,
+        "file3": 4,
+        "line1": 2,
+        "line3": 3,
+        "cost": 0.05464733399999999,
+        "ms": 112533,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.79",
+              "client/middleware.js:31-70 0.50",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.49"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 11,
+            "lineRank": null,
+            "top": [
+              "types.js:1620-1659 0.47",
+              "types.js:1950-1982 0.42",
+              "server/webStandardStreamableHttp.js:840-879 0.41"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 8,
+            "top": [
+              "shared/protocol.js:181-220 0.59",
+              "shared/protocol.js:618-657 0.45",
+              "shared/protocol.js:708-736 0.44"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "server/mcp.js:743-782 0.80",
+              "server/mcp.js:669-708 0.75",
+              "server/mcp.js:91-130 0.35"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.87",
+              "server/middleware/hostHeaderValidation.js:61-76 0.50",
+              "client/auth.js:645-684 0.44"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 5,
+            "lineRank": null,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.67",
+              "examples/server/simpleStreamableHttp.js:533-560 0.45",
+              "client/auth.js:260-299 0.45"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9827586206896551,
+        "macroF1": 0.9533964964455399,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 0.969,
+          "throws": 0.977,
+          "uses_timers": 0.95,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "cost": 0.005014548000000001,
+        "ms": 12414,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.7323943661971831,
+        "n": 71,
+        "cost": 0.004238892000000002,
+        "ms": 9368,
+        "errors": 0
+      }
+    },
+    {
+      "model": "scaledown/classify-1",
+      "locate": {
+        "file1": 4,
+        "file3": 5,
+        "line1": 1,
+        "line3": 3,
+        "cost": 0.057188239999999974,
+        "ms": 100691,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:61-88 0.43",
+              "client/sse.js:61-100 0.34",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.31"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 2,
+            "lineRank": 3,
+            "top": [
+              "client/stdio.js:91-130 0.53",
+              "server/stdio.js:1-40 0.47",
+              "shared/stdio.js:1-40 0.46"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 3,
+            "top": [
+              "shared/protocol.js:717-756 0.64",
+              "shared/protocol.js:181-220 0.57",
+              "shared/protocol.js:1-40 0.41"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.75",
+              "server/mcp.js:500-539 0.38",
+              "examples/server/ssePollingExample.js:1-40 0.34"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.61",
+              "client/sse.js:181-219 0.45",
+              "shared/transport.js:61-100 0.43"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 5,
+            "lineRank": null,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:1-40 0.78",
+              "examples/server/elicitationUrlExample.js:151-190 0.67",
+              "examples/server/demoInMemoryOAuthProvider.js:121-160 0.60"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.9827586206896551,
+        "macroF1": 0.9555463062168391,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 0.968,
+          "throws": 0.966,
+          "uses_timers": 0.974,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "cost": 0.029530800000000006,
+        "ms": 8328,
+        "errors": 0
+      },
+      "classify": {
+        "accuracy": 0.6619718309859155,
+        "n": 71,
+        "cost": 0.004860520000000004,
+        "ms": 5604,
+        "errors": 0
+      }
+    },
+    {
+      "model": "respan/span-01-lite",
+      "locate": {
+        "file1": 2,
+        "file3": 4,
+        "line1": 2,
+        "line3": 3,
+        "cost": 0,
+        "ms": 52185,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 2,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.13",
+              "server/auth/handlers/token.js:91-107 0.05",
+              "server/auth/providers/proxyProvider.js:121-158 0.05"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "server/webStandardStreamableHttp.js:501-540 0.17",
+              "shared/stdio.js:1-40 0.14",
+              "server/webStandardStreamableHttp.js:681-720 0.11"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 2,
+            "lineRank": 7,
+            "top": [
+              "shared/protocol.js:181-220 0.09",
+              "examples/server/simpleStatelessStreamableHttp.js:121-141 0.05",
+              "shared/protocol.js:61-100 0.04"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 4,
+            "lineRank": null,
+            "top": [
+              "examples/server/elicitationUrlExample.js:1-40 0.07",
+              "examples/server/simpleSseServer.js:1-40 0.07",
+              "server/mcp.js:1-40 0.06"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 9,
+            "lineRank": null,
+            "top": [
+              "server/auth/handlers/metadata.js:1-15 0.17",
+              "server/auth/handlers/token.js:1-40 0.08",
+              "server/auth/handlers/revoke.js:1-40 0.08"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.12",
+              "server/auth/middleware/bearerAuth.js:1-40 0.11",
+              "server/auth/middleware/bearerAuth.js:61-88 0.09"
+            ]
+          }
+        ]
+      },
+      "facts": {
+        "accuracy": 0.8908045977011494,
+        "macroF1": 0.7505316742081448,
+        "perQuestion": {
+          "calls_fetch": 0.714,
+          "defines_class": 0.875,
+          "throws": 0.706,
+          "uses_timers": 0.48,
+          "uses_zod": 0.786,
+          "async_code": 0.942
+        },
+        "cost": 0,
+        "ms": 4883,
+        "errors": 0
+      },
+      "classify": {
+        "error": "respan/span-01-lite supports only yes/no questions; use another model for choice/score questions"
+      }
+    }
+  ]
+}

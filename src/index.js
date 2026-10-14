@@ -5,13 +5,14 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { collectFiles } from "./files.js";
 import { classify, decideFiles, locate, estTokens, formatStats } from "./decisions.js";
-import { config } from "./openrouter.js";
+import { config, listDecisionModels } from "./openrouter.js";
 
-const INSTRUCTIONS = `Scans large amounts of text with Jev (a tiny, very cheap decision model on OpenRouter) so you don't have to read it yourself.
-Jev doesn't write text — it scores and picks. Use it to narrow down WHERE to look, then read only the lines it points to:
+const INSTRUCTIONS = `Scans large amounts of text with a tiny, very cheap decision model on OpenRouter (Jev by default; Clef, Mercury Decide and others work too) so you don't have to read it yourself.
+Decision models don't write text — they score and pick. Use them to narrow down WHERE to look, then read only the lines they point to:
 - locate_in_files: find where something is in many/huge files — the cause of a bug from its symptoms, the code behind a feature, where a setting lives. Returns file:line ranges with probabilities and the top snippets.
 - classify_files: sort many files into your categories.
 - decide_files: typed per-file facts — yes/no flags, one-of choices, ordered scores — e.g. to filter "files that write to the DB".
+- list_models: available decision models; pass one as \`model\` to switch.
 Prefer absolute paths; relative paths resolve against the project root. Describe the target specifically (symptoms, error text, names).
 Worth it when the material is bigger than ~5 files or a few thousand lines; for a small file just read it.`;
 
@@ -26,7 +27,10 @@ const commonShape = {
     .describe('Glob patterns inside directories, e.g. ["**/*.ts", "docs/**/*.md"]. Default: all text files'),
   exclude: z.array(z.string()).optional().describe('Extra globs to skip, e.g. ["**/*.test.ts"]'),
   respect_gitignore: z.boolean().optional().describe("Skip files ignored by the directory's .gitignore (default true)"),
-  model: z.string().optional().describe("Override the Jev model id for this call (default typesafe/jev-1.13)"),
+  model: z
+    .string()
+    .optional()
+    .describe("Override the OpenRouter decision model for this call, e.g. cloudflare/clef (see list_models)"),
   dry_run: z.boolean().optional().describe("Only list which files would be scanned and the estimated tokens; no API call"),
 };
 
@@ -93,15 +97,15 @@ async function guarded(fn) {
   }
 }
 
-const server = new McpServer({ name: "jev", version: "0.2.0" }, { instructions: INSTRUCTIONS });
+const server = new McpServer({ name: "jev", version: "0.3.0" }, { instructions: INSTRUCTIONS });
 
 server.registerTool(
   "locate_in_files",
   {
-    title: "Find where something is in many/huge files (Jev)",
+    title: "Find where something is in many/huge files",
     description:
       "Find which files and lines most likely contain what you describe — the cause of a bug from its symptoms, the code implementing a feature, where a setting is defined. " +
-      "Pass 1: every file is split into chunks and ALL chunks are scored by Jev (nothing is truncated; very cheap even for megabytes). " +
+      "Pass 1: every file is split into chunks and ALL chunks are scored by the decision model (nothing is truncated; very cheap even for megabytes). " +
       "Pass 2: the best chunks are re-scored in small line windows to pinpoint the lines. " +
       "Returns ranked file:line ranges with probabilities, a per-file ranking and the code of the top locations, so you can go straight to the fix.",
     inputSchema: {
@@ -117,7 +121,7 @@ server.registerTool(
         .optional()
         .describe("Include the code of this many top locations, with line numbers (default 3, 0 = only file:line ranges)"),
       window_lines: z.number().int().min(5).optional().describe("Size of the pinpointed line windows (default 40)"),
-      chunk_chars: z.number().int().positive().optional().describe("Chunk size in chars for pass 1 (default 20000, max 150000)"),
+      chunk_chars: z.number().int().positive().optional().describe("Chunk size in chars for pass 1 (default 20000; capped to what the model's context fits)"),
     },
   },
   (args, extra) =>
@@ -162,9 +166,9 @@ server.registerTool(
 server.registerTool(
   "classify_files",
   {
-    title: "Classify files (Jev)",
+    title: "Classify files",
     description:
-      "Classify every file in the given paths into your labels with Jev (one very cheap request per file, calibrated confidence). " +
+      "Classify every file in the given paths into your labels with a decision model (one very cheap request per file, calibrated confidence). " +
       "Returns files grouped by label. Good for triage: tests/configs/dead code, sorting documents by topic, flagging files about X. " +
       "Label descriptions after a colon noticeably improve accuracy.",
     inputSchema: {
@@ -180,7 +184,7 @@ server.registerTool(
         .int()
         .positive()
         .optional()
-        .describe("Truncate each file to this many chars, keeping head and tail (default 12000, max 150000)"),
+        .describe("Truncate each file to this many chars, keeping head and tail (default 12000; capped to the model's context)"),
       format: z.enum(["grouped", "table", "json"]).optional().describe("Output format (default grouped)"),
     },
   },
@@ -240,9 +244,9 @@ const fmtAnswer = (a) => {
 server.registerTool(
   "decide_files",
   {
-    title: "Typed per-file decisions (Jev)",
+    title: "Typed per-file decisions",
     description:
-      "Ask several typed questions about EACH file with Jev: yes_no flags, one-of choices and ordered scores, with calibrated probabilities. " +
+      "Ask several typed questions about EACH file with a decision model: yes_no flags, one-of choices and ordered scores, with calibrated probabilities. " +
       "Example: for every file decide uses_db (yes_no), layer (choice: api/domain/ui/infra), complexity (score: low/medium/high). " +
       "Use only_matching to return just the files where a yes_no question is yes.",
     inputSchema: {
@@ -255,7 +259,7 @@ server.registerTool(
         .int()
         .positive()
         .optional()
-        .describe("Truncate each file to this many chars, keeping head and tail (default 12000, max 150000)"),
+        .describe("Truncate each file to this many chars, keeping head and tail (default 12000; capped to the model's context)"),
       format: z.enum(["table", "json"]).optional().describe("Output format (default table)"),
     },
   },
@@ -284,6 +288,30 @@ server.registerTool(
             rows.map((x) => (x.error ? `${x.file}\tERROR: ${x.error}` : `${x.file}\t${ids.map((id) => fmtAnswer(x.answers[id])).join("\t")}`)).join("\n");
       const legend = "yes_no: yes|no(probability of yes); choice: value(confidence); score: value/nearest level";
       return text(`${body}\n\n---\n${legend}\n${meta}${skippedSummary(g.skipped, 5)}`);
+    }),
+);
+
+server.registerTool(
+  "list_models",
+  {
+    title: "List decision models",
+    description:
+      "List the decision models available on OpenRouter (id, context window, input price) and which one is the default. " +
+      "Pass an id as `model` to any other tool. Bigger context = bigger chunks per request.",
+    inputSchema: {},
+  },
+  () =>
+    guarded(async () => {
+      const models = await listDecisionModels();
+      if (!models.length) return fail("Could not load the model list from OpenRouter.");
+      const cfg = config();
+      const rows = [...models]
+        .sort((a, b) => a.pricePerM - b.pricePerM || b.context - a.context)
+        .map((m) => {
+          const tags = [m.id === cfg.model && "default", cfg.fallbacks.includes(m.id) && "fallback"].filter(Boolean);
+          return `${m.id}\t${m.context || "?"}\t$${m.pricePerM.toFixed(3)}${tags.length ? `\t(${tags.join(", ")})` : ""}`;
+        });
+      return text(`model\tcontext\t$/1M input\n${rows.join("\n")}`);
     }),
 );
 

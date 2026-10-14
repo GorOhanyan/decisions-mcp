@@ -1,10 +1,8 @@
-import { config, decide, pool } from "./openrouter.js";
+import { charBudget, config, decide, pool } from "./openrouter.js";
 
 // Rough token estimate, only used for dry-run reports.
 export const estTokens = (s) => Math.ceil(s.length / 3);
 
-// Jev has a 64k-token context; keep every request well inside it.
-const MAX_CHARS = 150_000;
 
 function newStats() {
   return { calls: 0, prompt: 0, cost: 0, models: new Set() };
@@ -74,7 +72,10 @@ function normalizeAnswer(a) {
     return { value: p >= 0.5 ? "yes" : "no", p: +p.toFixed(2) };
   }
   if (a.type === "score" || typeof a.score === "number") {
-    const level = a.legend?.[String(Math.round(a.score))];
+    // Level = most probable rung; `score` itself is the expected rung index (0..n-1).
+    const probs = Object.entries(a.probabilities || {});
+    const top = probs.length ? probs.reduce((x, y) => (y[1] > x[1] ? y : x))[0] : String(Math.round(a.score));
+    const level = a.legend?.[top];
     return { value: +Number(a.score).toFixed(2), level, confidence: +(Number(a.confidence) || 0).toFixed(2) };
   }
   return { value: a.choice ?? null, confidence: +(Number(a.confidence) || 0).toFixed(2) };
@@ -87,7 +88,8 @@ export async function decideFiles({ files, questions, instructions, maxCharsPerF
   const errors = [];
   const dq = toDecisionQuestions(questions, instructions);
   const keys = questions.map((q) => [q.id, keyOf(q.id)]);
-  const limit = Math.min(maxCharsPerFile, MAX_CHARS);
+  // Never exceed what the model's context can take.
+  const limit = Math.min(maxCharsPerFile, await charBudget(model));
   let done = 0;
   const rows = await pool(files, cfg.concurrency, async (f) => {
     const r = await tracked(stats, { questions: dq, state: { path: f.rel, content: clip(f.content, limit) }, model, signal }, errors);
@@ -188,7 +190,8 @@ export async function locate({ files, query, chunkChars = 20000, refineTop = 5, 
     return { ...c, p: r ? Number(r.answers.hit?.noul) || 0 : -1 };
   };
 
-  const chunks = files.flatMap((f) => chunkByChars(f.content, Math.min(chunkChars, MAX_CHARS)).map((c) => ({ ...c, rel: f.rel })));
+  const size = Math.min(chunkChars, await charBudget(model));
+  const chunks = files.flatMap((f) => chunkByChars(f.content, size).map((c) => ({ ...c, rel: f.rel })));
   let done = 0;
   const progress = (total) => onProgress?.(++done, total);
   const pass1 = await pool(chunks, cfg.concurrency, async (c) => {
@@ -224,6 +227,7 @@ export async function locate({ files, query, chunkChars = 20000, refineTop = 5, 
     locations.push(w);
   }
   return {
+    chunkChars: size,
     locations,
     files: fileRanking,
     stats,
