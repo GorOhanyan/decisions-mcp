@@ -10,6 +10,7 @@
 - A cancelled tool call stops at once, also while waiting to retry, and sends no further retries. Waits from a server's `retry-after-ms` are capped at 60 s.
 - On Nace, which reports billed input tokens but no cost, the cost stays unreported instead of $0. OpenRouter still counts a missing cost as $0.
 - `list_models` works with Nace and marks aliases and retired ids.
+- Benchmark: runs on Nace (`DECISIONS_PROVIDER=nace`), records input tokens, reported cost and p50 / p95 latency, and adds `--price-per-m` (calculated estimate), `--tag` and `--bugs`.
 
 ## 0.4.0 — 2026-10-14
 

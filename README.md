@@ -280,7 +280,7 @@ npm test
 
 The test is end-to-end: a real MCP client talks to the server over stdio while the Decisions API is mocked. It covers every tool, dry runs, filters, secret / `.gitignore` / binary exclusion, a full scan of a large file with pinpointing to a line window, context-aware chunk sizing, per-model request adaptation, fallback models and workspace-root detection via MCP roots. `test/nace.mjs` does the same against a mock Nace API: request shape and headers, Drex answer shapes, error handling and retries, which key reaches which host, and media stripping. `test/config.mjs` checks provider selection and the media stripper.
 
-`npm run bench` runs the quality benchmark against the real API (needs `OPENROUTER_API_KEY`; about $1–2 for all models).
+`npm run bench` runs the quality benchmark against the real API (needs `OPENROUTER_API_KEY`; about $1–2 for all models). For Nace, run `DECISIONS_PROVIDER=nace NACE_API_KEY=nace_sk_... npm run bench -- --models drex-max-v1.1,drex-v2.0`. The results record input tokens, the cost the provider reported (Nace reports none), and p50 / p95 request latency. `--price-per-m <dollars>` adds a cost estimate calculated from input tokens, labelled as calculated; `--tag <name>` writes `bench/results/<date>-<tag>.*` (a Nace run defaults to the tag `nace`); `--bugs 1,3` runs only some localization cases.
 
 ## License
 
