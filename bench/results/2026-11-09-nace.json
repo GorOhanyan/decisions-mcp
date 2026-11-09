@@ -1,0 +1,236 @@
+{
+  "meta": {
+    "date": "2026-11-09",
+    "provider": "nace",
+    "tag": "nace",
+    "corpus": "@modelcontextprotocol/sdk@1.32.1 dist/esm",
+    "files": 87,
+    "approxTokens": 230286,
+    "bugs": 6,
+    "facts": [
+      "calls_fetch",
+      "defines_class",
+      "throws",
+      "uses_timers",
+      "uses_zod",
+      "async_code"
+    ],
+    "pricePerM": 0.03
+  },
+  "results": [
+    {
+      "model": "drex-max-v1.1",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 5,
+        "line3": 5,
+        "ms": 69674,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.99",
+              "client/streamableHttp.js:301-340 0.62",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.48"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.96",
+              "server/stdio.js:1-40 0.72",
+              "client/stdio.js:91-130 0.52"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.90",
+              "shared/protocol.js:717-756 0.89",
+              "shared/protocol.js:181-220 0.86"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": null,
+            "top": [
+              "server/mcp.js:710-749 0.96",
+              "server/mcp.js:650-689 0.65",
+              "server/mcp.js:31-70 0.28"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.99",
+              "client/streamableHttp.js:91-130 0.69",
+              "server/sse.js:61-100 0.69"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.99",
+              "server/auth/middleware/bearerAuth.js:1-40 0.93",
+              "examples/server/demoInMemoryOAuthProvider.js:121-160 0.61"
+            ]
+          }
+        ],
+        "inputTokens": 1409902,
+        "cost": null,
+        "estimatedCost": 0.04229706,
+        "requests": 932,
+        "p50ms": 516,
+        "p95ms": 772,
+        "evalP50ms": 173
+      },
+      "facts": {
+        "accuracy": 0.9942528735632183,
+        "macroF1": 0.9708141321044547,
+        "perQuestion": {
+          "calls_fetch": 0.857,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 0.968,
+          "async_code": 1
+        },
+        "ms": 6351,
+        "inputTokens": 131579,
+        "cost": null,
+        "estimatedCost": 0.0039473699999999995,
+        "requests": 87,
+        "p50ms": 532,
+        "p95ms": 749,
+        "evalP50ms": 170,
+        "errors": 0
+      }
+    },
+    {
+      "model": "drex-v2.0",
+      "locate": {
+        "file1": 6,
+        "file3": 6,
+        "line1": 5,
+        "line3": 6,
+        "ms": 61590,
+        "errors": 0,
+        "cases": [
+          {
+            "file": "server/auth/middleware/bearerAuth.js",
+            "bugLine": 49,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "server/auth/middleware/bearerAuth.js:31-70 0.98",
+              "examples/server/demoInMemoryOAuthProvider.js:91-130 0.87",
+              "examples/server/simpleStreamableHttp.js:516-555 0.60"
+            ]
+          },
+          {
+            "file": "shared/stdio.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/stdio.js:1-40 0.84",
+              "server/stdio.js:1-40 0.60",
+              "client/stdio.js:181-194 0.57"
+            ]
+          },
+          {
+            "file": "shared/protocol.js",
+            "bugLine": 8,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/protocol.js:1-40 0.85",
+              "shared/protocol.js:181-220 0.84",
+              "shared/protocol.js:717-756 0.80"
+            ]
+          },
+          {
+            "file": "server/mcp.js",
+            "bugLine": 702,
+            "fileRank": 1,
+            "lineRank": 2,
+            "top": [
+              "server/mcp.js:740-779 0.94",
+              "server/mcp.js:680-719 0.83",
+              "examples/server/simpleStreamableHttp.js:1-40 0.57"
+            ]
+          },
+          {
+            "file": "client/sse.js",
+            "bugLine": 117,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "client/sse.js:91-130 0.97",
+              "shared/transport.js:61-100 0.73",
+              "server/express.js:1-40 0.66"
+            ]
+          },
+          {
+            "file": "shared/auth-utils.js",
+            "bugLine": 27,
+            "fileRank": 1,
+            "lineRank": 1,
+            "top": [
+              "shared/auth-utils.js:1-40 0.94",
+              "server/auth/middleware/bearerAuth.js:31-70 0.91",
+              "examples/server/demoInMemoryOAuthProvider.js:61-100 0.91"
+            ]
+          }
+        ],
+        "inputTokens": 1291936,
+        "cost": null,
+        "estimatedCost": 0.03875808,
+        "requests": 897,
+        "p50ms": 445,
+        "p95ms": 713,
+        "evalP50ms": 33
+      },
+      "facts": {
+        "accuracy": 0.9865900383141762,
+        "macroF1": 0.9385964912280702,
+        "perQuestion": {
+          "calls_fetch": 0.632,
+          "defines_class": 1,
+          "throws": 1,
+          "uses_timers": 1,
+          "uses_zod": 1,
+          "async_code": 1
+        },
+        "ms": 6269,
+        "inputTokens": 119394,
+        "cost": null,
+        "estimatedCost": 0.00358182,
+        "requests": 87,
+        "p50ms": 553,
+        "p95ms": 804,
+        "evalP50ms": 87,
+        "errors": 0
+      }
+    }
+  ]
+}
