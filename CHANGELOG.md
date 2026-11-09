@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Call Drex directly through the Nace API, alongside OpenRouter: set `NACE_API_KEY` (and optionally `DECISIONS_PROVIDER=nace`, `DECISIONS_NACE_URL`). The default Nace model is `drex-max-v1.1`; other `drex-*` ids and OpenRouter's `nace-ai/drex-*` ids work too. Without `DECISIONS_PROVIDER`, Nace is used only when `NACE_API_KEY` is the only key set, so existing setups keep OpenRouter.
+- Each provider's key is sent only to that provider's URLs.
+- Nace errors show the HTTP status, Drex's error type, issue paths with short messages, and `request_id`, without quoted request values. Rate-limit and overload responses are retried after `retry-after-ms`. Key, credit and validation errors (401, 402, 422) are not retried and, on Nace, don't fall back to `DECISIONS_FALLBACK_MODELS`; OpenRouter's fallback rules are unchanged.
+- Requests over Drex's limits (512 questions; 255 options per question on Drex Max) fail with a clear error before anything is sent.
+- `DECISIONS_STRIP_INLINE_MEDIA` replaces inline base64 media (`data:` URLs, base64 images, audio and PDFs, also when wrapped over lines) with a short marker in file text and question text, keeping line numbers. On by default for Nace and for OpenRouter's `nace-ai/` models, which Drex rejects such requests for; off by default for other OpenRouter models.
+- A cancelled tool call stops at once, also while waiting to retry, and sends no further retries. Waits from a server's `retry-after-ms` are capped at 60 s.
+- On Nace, which reports billed input tokens but no cost, the cost stays unreported instead of $0. OpenRouter still counts a missing cost as $0.
+- `list_models` works with Nace and marks aliases and retired ids.
+
 ## 0.4.0 — 2026-10-14
 
 - Renamed from `jev-offload-mcp` to `decisions-mcp`: the server works with any OpenRouter decision model, not only Jev.

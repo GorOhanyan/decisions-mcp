@@ -3,6 +3,10 @@ import path from "node:path";
 import { glob } from "tinyglobby";
 import ignore from "ignore";
 import { env } from "./env.js";
+import { stripInlineMediaEnabled } from "./config.js";
+import { stripInlineMedia } from "./media.js";
+
+export { stripInlineMedia };
 
 // Skipped in directory scans (never sent to the remote model) unless DECISIONS_ALLOW_SECRETS=1.
 const SECRET_PATTERNS = [
@@ -59,6 +63,8 @@ function checkAllowed(absPath) {
 
 /**
  * Collect text files from a list of paths (files or directories).
+ * `stripMedia` replaces inline base64 media with a marker, keeping line counts. Default: DECISIONS_STRIP_INLINE_MEDIA,
+ * else on for Nace and for OpenRouter's nace-ai/ models (`model`, or the configured model and fallbacks).
  * Returns { files: [{path, rel, content, bytes}], skipped: [{path, reason}], root }.
  */
 export async function collectFiles({
@@ -69,6 +75,8 @@ export async function collectFiles({
   respectGitignore = true,
   maxFileBytes = Number(env("MAX_FILE_BYTES")) || 1_000_000,
   maxFiles = Number(env("MAX_FILES")) || 2000,
+  model,
+  stripMedia = stripInlineMediaEnabled(model ? [model] : undefined),
 }) {
   const files = [];
   const skipped = [];
@@ -134,7 +142,8 @@ export async function collectFiles({
       skipped.push({ path: c.rel, reason: "binary content" });
       continue;
     }
-    files.push({ path: c.abs, rel: c.rel, content: buf.toString("utf8"), bytes: buf.length });
+    const content = buf.toString("utf8");
+    files.push({ path: c.abs, rel: c.rel, content: stripMedia ? stripInlineMedia(content) : content, bytes: buf.length });
   }
   return { files, skipped };
 }

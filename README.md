@@ -4,7 +4,7 @@
 
 **Let your AI agent scan huge codebases for a fraction of a cent — without reading them.**
 
-An [MCP](https://modelcontextprotocol.io) server that gives any coding agent — Claude Code, Claude Desktop, Cursor, VS Code, Codex, Windsurf — access to tiny **decision models** on OpenRouter: [Jev](https://openrouter.ai/typesafe/jev-1.13) by default, [Cloudflare Clef](https://openrouter.ai/cloudflare/clef), Mercury Decide, Liquid D1 and every other model behind the [Decisions API](https://openrouter.ai/docs). The agent describes what it's looking for; the model sifts through every line and points to the exact spot.
+An [MCP](https://modelcontextprotocol.io) server that gives any coding agent — Claude Code, Claude Desktop, Cursor, VS Code, Codex, Windsurf — access to tiny **decision models** on OpenRouter: [Jev](https://openrouter.ai/typesafe/jev-1.13) by default, [Cloudflare Clef](https://openrouter.ai/cloudflare/clef), Mercury Decide, Liquid D1 and every other model behind the [Decisions API](https://openrouter.ai/docs), or Drex directly through the [Nace API](#drex-directly-through-the-nace-api). The agent describes what it's looking for; the model sifts through every line and points to the exact spot.
 
 [![CI](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)
@@ -78,7 +78,7 @@ Measured on the compiled [MCP TypeScript SDK](https://github.com/modelcontextpro
 | `locate_in_files` | Finds **where** something is: a bug from its symptoms, the code behind a feature, where a setting lives. Returns ranked `file:lines` with probabilities, a per-file ranking and the code of the top hits | *"valid tokens get 401 'Token has expired', expired ones pass"* |
 | `classify_files` | Sorts every file into your labels with a confidence score | `test`, `config`, `dead-code: unused or unreachable`, `business-logic` |
 | `decide_files` | Several typed questions per file: `yes_no`, `choice`, `score`. `only_matching` returns only files where a flag is *yes* | `uses_db` (yes/no), `layer` (api/domain/ui), `complexity` (low → high) |
-| `list_models` | Decision models available on OpenRouter with context size and price; pass any id as `model` | `cloudflare/clef`, `inception/mercury-decide` |
+| `list_models` | Decision models available from the configured provider (OpenRouter or Nace) with context size and price; pass any id as `model` | `cloudflare/clef`, `inception/mercury-decide`, `drex-v2.0` |
 
 Common parameters: `paths` (files and/or directories), `include` / `exclude` (globs), `respect_gitignore`, `model`, `dry_run` (show what would be scanned — no API calls).
 
@@ -121,9 +121,27 @@ Every tool takes a `model` argument, and `DECISIONS_MODEL` sets the default. The
 - **Request quirks** are learned from the first rejection and remembered: models that want `state` as a string (ScaleDown, Respan) or accept only yes/no questions with plain-string criteria (Respan) just work.
 - **Fallbacks**: list backups in `DECISIONS_FALLBACK_MODELS`, and they take over if the primary model fails.
 
+## Drex directly through the Nace API
+
+Nace serves its Drex decision models directly, so you can use them without OpenRouter. Get a `nace_sk_` key on [console.nace.ai](https://console.nace.ai) → API Keys and set `NACE_API_KEY` instead of `OPENROUTER_API_KEY`:
+
+```bash
+claude mcp add decisions --scope user -e DECISIONS_PROVIDER=nace -e NACE_API_KEY=nace_sk_... -- node /ABS/PATH/decisions-mcp/src/index.js
+```
+
+In the JSON and TOML configs under [Install](#install), put `"DECISIONS_PROVIDER": "nace", "NACE_API_KEY": "nace_sk_..."` (Codex: `DECISIONS_PROVIDER = "nace"` and `NACE_API_KEY = "nace_sk_..."`) where `OPENROUTER_API_KEY` is.
+
+- **Choosing the provider.** `DECISIONS_PROVIDER=openrouter` or `nace` decides. If it isn't set, the server uses Nace only when `NACE_API_KEY` is the only key set; otherwise it uses OpenRouter, as before.
+- **Models.** The default is `drex-max-v1.1`. `drex-v2.0` and other `drex-*` ids work through `DECISIONS_MODEL` or the `model` argument, and OpenRouter-style ids such as `nace-ai/drex-v2.0` are accepted too. Models from other providers are refused before any request is sent. `list_models` shows the models your key can use.
+- **Cost.** The Nace API reports billed input tokens but no cost, so the tool summary shows `tokens in` and no `cost:`. Prices are on the console's Pricing page.
+- **Text only.** Drex rejects requests with inline base64 media, so on Nace, and for `nace-ai/` models on OpenRouter, base64 `data:` URLs and embedded base64 images, audio or PDFs (in SVG, HTML, CSS, notebooks, or wrapped over lines in source files) are replaced by a marker such as `[base64 image omitted]` before sending, in file text and in your query, labels and questions alike. A bare prefix such as `"data:image/png;base64,"` in code only gets a space after `data:`. Line numbers don't change. See `DECISIONS_STRIP_INLINE_MEDIA`.
+- **Limits.** Drex takes at most 512 questions per request, and Drex Max models at most 255 options per question. A multi-label `classify_files` asks one question per label, so a request over these limits fails with a clear error before anything is sent.
+- **Keys.** The Nace key is sent only to `DECISIONS_NACE_URL`, and the OpenRouter key only to OpenRouter's URLs.
+- **Errors** show the HTTP status, Drex's error type, each issue's path with a short message, and the `request_id`. Quoted values in Drex's messages are left out, since they can repeat request content. Rate-limit and overload responses are retried after the `retry-after-ms` delay Drex sends (at most 60 s). Key, credit and validation errors (401, 402, 422) aren't retried and don't fall back to `DECISIONS_FALLBACK_MODELS`.
+
 ## Install
 
-You need **Node.js 18+** and a regular **OpenRouter API key** — [openrouter.ai/keys](https://openrouter.ai/keys) (a management/provisioning key won't work).
+You need **Node.js 18+** and a regular **OpenRouter API key** — [openrouter.ai/keys](https://openrouter.ai/keys) (a management/provisioning key won't work). For Drex without OpenRouter, use a Nace key instead (see [above](#drex-directly-through-the-nace-api)).
 
 ```bash
 git clone https://github.com/GorOhanyan/decisions-mcp.git
@@ -233,16 +251,20 @@ The old `JEV_*` names (from when the project was called jev-offload-mcp) are sti
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENROUTER_API_KEY` | — | **Required** |
-| `DECISIONS_MODEL` | `typesafe/jev-1.13` | Default decision model (any id from `list_models`) |
+| `OPENROUTER_API_KEY` | — | **Required** for OpenRouter |
+| `NACE_API_KEY` | — | **Required** for Nace: a `nace_sk_` key from console.nace.ai |
+| `DECISIONS_PROVIDER` | `openrouter`; `nace` when only `NACE_API_KEY` is set | `openrouter` or `nace` |
+| `DECISIONS_MODEL` | `typesafe/jev-1.13` (OpenRouter), `drex-max-v1.1` (Nace) | Default decision model (any id from `list_models`) |
 | `DECISIONS_FALLBACK_MODELS` | — | Comma-separated backups tried in order if the primary fails |
-| `DECISIONS_CONCURRENCY` | `8` | Parallel requests to Jev |
+| `DECISIONS_CONCURRENCY` | `8` | Parallel model requests |
 | `DECISIONS_BASE_DIR` | workspace root from MCP roots, else cwd | What relative paths resolve against |
 | `DECISIONS_ALLOWED_ROOTS` | — | Restrict reading to these directories (`:`-separated) |
 | `DECISIONS_MAX_FILE_BYTES` / `DECISIONS_MAX_FILES` | `1000000` / `2000` | Limits for file collection |
 | `DECISIONS_ALLOW_SECRETS` | — | `1` stops excluding `.env`, keys etc. (not recommended) |
-| `DECISIONS_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Decisions API endpoint |
-| `DECISIONS_MODELS_URL` | OpenRouter decision-model catalog | Where context sizes and prices are read from |
+| `DECISIONS_STRIP_INLINE_MEDIA` | on for Nace and for OpenRouter's `nace-ai/` models, off for other OpenRouter models | `true` replaces inline base64 media in files (`data:` URLs, base64 images and PDFs) with a short marker before sending; `false` sends file text as is |
+| `DECISIONS_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | OpenRouter Decisions API endpoint |
+| `DECISIONS_MODELS_URL` | OpenRouter decision-model catalog | Where context sizes and prices are read from (OpenRouter) |
+| `DECISIONS_NACE_URL` | `https://console.nace.ai` | Nace API base URL |
 | `DECISIONS_TIMEOUT_MS` | `120000` | Per-request timeout |
 
 ## What never leaves your machine
@@ -256,7 +278,7 @@ npm install
 npm test
 ```
 
-The test is end-to-end: a real MCP client talks to the server over stdio while the Decisions API is mocked. It covers every tool, dry runs, filters, secret / `.gitignore` / binary exclusion, a full scan of a large file with pinpointing to a line window, context-aware chunk sizing, per-model request adaptation, fallback models and workspace-root detection via MCP roots.
+The test is end-to-end: a real MCP client talks to the server over stdio while the Decisions API is mocked. It covers every tool, dry runs, filters, secret / `.gitignore` / binary exclusion, a full scan of a large file with pinpointing to a line window, context-aware chunk sizing, per-model request adaptation, fallback models and workspace-root detection via MCP roots. `test/nace.mjs` does the same against a mock Nace API: request shape and headers, Drex answer shapes, error handling and retries, which key reaches which host, and media stripping. `test/config.mjs` checks provider selection and the media stripper.
 
 `npm run bench` runs the quality benchmark against the real API (needs `OPENROUTER_API_KEY`; about $1–2 for all models).
 
