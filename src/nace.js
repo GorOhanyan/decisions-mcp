@@ -60,6 +60,28 @@ function clean(s, key) {
 }
 const token = (v, re) => (typeof v === "string" && re.test(v) ? v : undefined);
 
+// Issues about the request text never repeat Drex's message, which could quote that text; only Drex's
+// fixed wording for media and for length is passed through
+// (https://console.nace.ai/docs/drex/reference/errors).
+const STATE_ISSUE = [
+  /^is media \([\w/.+ -]{1,60}\); (?:place supported images in the top-level images array|[\w.-]{1,40} reads text only)$/,
+  /^exceeds the [\d,]{1,12}-token (?:state |whole-request )?limit$/,
+];
+// A top-level message without issues is shown only when it is one of Drex's own fixed sentences
+// (authentication, funds, rate limits, capacity, length); anything else gets a generic line.
+const KNOWN_MESSAGE = [
+  /^Invalid API key\. Pass a nace_sk_ key as `Authorization: Bearer <key>`\.$/,
+  /^This account (?:has insufficient available funds|has an unpaid invoice|has reached the credit limit)[\w ,.]{0,160}$/,
+  /^(?:Requests per minute exceeded|Too many concurrent requests) for this account\.$/,
+  /^(?:The free tier|Drex|Drex Max image inference) is (?:at capacity|temporarily unavailable|temporarily overloaded|not configured)[\w ,.]{0,80}$/,
+  /^The model service (?:is busy|failed to process this request)[\w ,.]{0,160}$/,
+  /^Something went wrong on our side\.$/,
+  /^Request too long: [\w ,.()-]{1,300}$/,
+  /^request body must be at most \d{1,12} bytes$/,
+  /^Invalid request\.$/,
+];
+const GENERIC_MESSAGE = "request failed (message not shown; see the request_id)";
+
 const HINTS = {
   401: " (NACE_API_KEY needs a valid nace_sk_ key from console.nace.ai → API Keys)",
   402: " (add funds or pay the open invoice on the console Billing page)",
@@ -77,17 +99,17 @@ function naceError(cfg, model, status, raw, res) {
     const issues = Array.isArray(e.issues) ? e.issues.filter((i) => i && typeof i === "object").slice(0, 5) : [];
     if (issues.length) {
       const path = (i) => token(i.path, /^[\w.[\]-]{0,100}$/);
-      // Issues about the file text never repeat Drex's message, which could quote that text; only
-      // Drex's fixed "is media (...)" wording (lib/ndm.ts) is passed through.
-      const MEDIA = /^is media \([\w/.+ -]{1,60}\); (?:place supported images in the top-level images array|[\w.-]{1,40} reads text only)$/;
-      const message = (i) =>
-        /^state\b/.test(path(i) ?? "") && !MEDIA.test(i.message ?? "") ? "rejected" : clean(i.message ?? "", cfg.apiKey);
+      const known = (i) => STATE_ISSUE.some((re) => re.test(i.message ?? ""));
+      const message = (i) => (/^state\b/.test(path(i) ?? "") && !known(i) ? "rejected" : clean(i.message ?? "", cfg.apiKey));
       detail = `${type}: ${issues.map((i) => [path(i), message(i)].filter(Boolean).join(": ")).join("; ")}`;
     } else {
-      detail = `${type}: ${clean(e.message ?? "", cfg.apiKey)}`;
+      const m = typeof e.message === "string" ? e.message.trim() : "";
+      detail = `${type}: ${KNOWN_MESSAGE.some((re) => re.test(m)) ? clean(m, cfg.apiKey) : GENERIC_MESSAGE}`;
     }
   } else {
-    detail = `response is not JSON: ${clean(raw, cfg.apiKey)}`;
+    // A body that isn't Drex's JSON (a proxy or gateway page) is not shown, only its content type.
+    const ct = token((res.headers.get("content-type") || "").split(";")[0].trim(), /^[\w.+-]{1,40}\/[\w.+-]{1,60}$/);
+    detail = `response is not JSON${ct ? ` (${ct})` : ""}`;
   }
   const requestId = token(body?.request_id, /^[\w-]{1,80}$/) || token(res.headers.get("x-request-id"), /^[\w-]{1,80}$/);
   const msg = `Nace ${status} (${model}): ${detail}${HINTS[status] || ""}${requestId ? ` [request_id: ${requestId}]` : ""}`;
@@ -100,8 +122,9 @@ function naceError(cfg, model, status, raw, res) {
   return err;
 }
 
-// Per-request limits Drex enforces (lib/ndm.ts, lib/models.ts): 512 questions for every model, and
-// 255 options or levels per question for Drex Max models and the retired ids Drex Max now serves.
+// Per-request limits Drex enforces (https://console.nace.ai/docs/drex/reference/limits): 512 questions
+// for every model, and 255 options or levels per question for Drex Max models and the retired ids Drex
+// Max now serves.
 const MAX_QUESTIONS = 512;
 const MAX_OPTIONS = 255;
 const MAX_OPTION_MODELS = new Set(["drex-max-v1.1", "drex-max-finance", "drex-max", "drex-v1.0", "drex-v1.1", "drex-v1.5"]);

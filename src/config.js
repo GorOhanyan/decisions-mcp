@@ -29,19 +29,16 @@ export function provider() {
 const list = (v) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
 
 /**
- * Whether inline base64 media (data: URLs, base64 images and PDFs) is replaced by a short marker before
- * text is sent. DECISIONS_STRIP_INLINE_MEDIA=true|false wins. Otherwise it is on wherever Drex reads
- * the request, since Drex rejects such requests: on Nace, and on OpenRouter when one of `models`
- * (default: DECISIONS_MODEL and its fallbacks) is a nace-ai/ model. Other OpenRouter models: off.
+ * Whether inline base64 media (data: URLs, base64 images, audio, video and PDFs) is replaced by a short
+ * marker before text is sent. DECISIONS_STRIP_INLINE_MEDIA=true|false wins. Otherwise it is on for Nace,
+ * since Drex rejects such requests, and off for OpenRouter, which gets text byte-for-byte as before.
  */
-export function stripInlineMediaEnabled(models) {
+export function stripInlineMediaEnabled() {
   const v = (env("STRIP_INLINE_MEDIA") || "").trim().toLowerCase();
   if (["1", "true", "yes", "on"].includes(v)) return true;
   if (["0", "false", "no", "off"].includes(v)) return false;
   if (v) throw new Error(`DECISIONS_STRIP_INLINE_MEDIA must be true or false (got "${v}")`);
-  if (provider() === "nace") return true;
-  const ms = models ?? [env("MODEL") || DEFAULTS.openrouter.model, ...list(env("FALLBACK_MODELS"))];
-  return ms.some((m) => /^nace-ai\//i.test(String(m)));
+  return provider() === "nace";
 }
 
 /** Server settings. Each provider's key is only ever sent to that provider's URLs. */

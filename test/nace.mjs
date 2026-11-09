@@ -46,9 +46,9 @@ const naceMock = http.createServer((req, res) => {
     const body = raw ? JSON.parse(raw) : undefined;
     const auth = req.headers.authorization || "";
     nace.push({ method: req.method, url: req.url, headers: req.headers, raw, body, at: Date.now() });
-    // Echoes the key it got, so the client's redaction is what keeps it out of tool output.
+    // Drex's real 401 wording; a message that echoes the key is covered by drex-test-echo-top.
     if (auth !== `Bearer ${NACE_KEY}`)
-      return naceError(res, 401, "authentication_error", `Invalid API key ${auth}. Pass a nace_sk_ key as \`Authorization: Bearer <key>\`.`);
+      return naceError(res, 401, "authentication_error", "Invalid API key. Pass a nace_sk_ key as `Authorization: Bearer <key>`.");
     if (req.method === "GET" && req.url === "/v1/models") return sendJson(res, 200, { models: MODELS, request_id: `req_${++rid}` });
     if (req.method !== "POST" || req.url !== "/v1/systemone") return naceError(res, 404, "invalid_request_error", "not found");
     const n = (seen.get(body.model) || 0) + 1;
@@ -72,6 +72,14 @@ const naceMock = http.createServer((req, res) => {
           { path: "state.content", message: `bad value ${content}` },
           { path: "state", message: `bad value '${content}` },
         ],
+      });
+    if (body.model === "drex-test-echo-top")
+      // A top-level message with no issues that reflects the file text, the key and other text.
+      return naceError(res, 422, "invalid_request_error", `could not read ${content} near SENTINEL_9f3a (${auth})`);
+    if (body.model === "drex-test-too-long")
+      // Drex's real 422 for a state over the model's limit.
+      return naceError(res, 422, "invalid_request_error", `Request too long: the state exceeds the 131,072-token state limit of ${body.model}. Shorten the state.`, {
+        issues: [{ path: "state", message: "exceeds the 131,072-token state limit" }],
       });
     if (body.model === "drex-test-html") {
       // Not JSON; the key sits near the cut-off point of the shown text.
@@ -277,16 +285,28 @@ r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs
 assert.match(r.text, /## code \(1\)/, r.text);
 assert.equal(posts().length, 2, "529 is retried, then succeeds");
 
-// ---- 7. Error text never echoes request values: issues about the file text say only "rejected", quoted values are dropped, non-JSON bodies are redacted, then cut
+// ---- 7. Error text never echoes request values: issues about the file text say only "rejected", unknown
+// top-level messages and non-JSON bodies are not shown, Drex's fixed length wording is
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-echo" });
 assert.equal(r.isError, true);
 assert.match(r.text, /Nace 422 \(drex-test-echo\): invalid_request_error: state\.content: rejected; state\.content: rejected; state: rejected/, r.text);
 assert.ok(!r.text.includes("export const a"), `file text leaked into the error: ${r.text}`);
 reset();
+r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-echo-top" });
+assert.equal(r.isError, true);
+assert.match(r.text, /Nace 422 \(drex-test-echo-top\): invalid_request_error: request failed \(message not shown; see the request_id\) \[request_id: req_err\d+\]/, r.text);
+for (const leak of ["SENTINEL_9f3a", "export const a", "could not read", NACE_KEY.slice(0, 12)]) assert.ok(!r.text.includes(leak), `"${leak}" leaked: ${r.text}`);
+reset();
+r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-too-long" });
+assert.equal(r.isError, true);
+assert.match(r.text, /Nace 422 \(drex-test-too-long\): invalid_request_error: state: exceeds the 131,072-token state limit \[request_id: req_err\d+\]/, r.text);
+assert.equal(posts().length, 1, "422 is not retried");
+reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-html" });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 418 \(drex-test-html\): response is not JSON: <html><body>x+ Bearer \[redacted\]/, r.text);
+assert.match(r.text, /Nace 418 \(drex-test-html\): response is not JSON \(text\/html\)( \[|$)/, r.text);
+assert.ok(!r.text.includes("<html>") && !r.text.includes("trailing"), `non-JSON body shown: ${r.text}`);
 assert.ok(!r.text.includes(NACE_KEY.slice(0, 12)), `a key prefix leaked: ${r.text}`);
 
 // ---- 8. Inline media is stripped from files and from question text (default for Nace); line count is unchanged
@@ -326,12 +346,12 @@ assert.match(r.text, /Nace 422 .*data URL/, r.text);
 assert.ok(posts()[0].body.state.content.includes(png));
 await s.close();
 
-// ---- 11. 401: hint + request_id, the echoed key never shows up, no retry and no fallback
+// ---- 11. 401: Drex's message, hint + request_id, the key never shows up, no retry and no fallback
 s = await start({ ...naceEnv, NACE_API_KEY: REVOKED_KEY, DECISIONS_FALLBACK_MODELS: "drex-v2.0" });
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"] });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 401 \(drex-max-v1\.1\): authentication_error: Invalid API key Bearer \[redacted\]\..*nace_sk_ key from console\.nace\.ai.*\[request_id: req_err\d+\]/, r.text);
+assert.match(r.text, /Nace 401 \(drex-max-v1\.1\): authentication_error: Invalid API key\. Pass a nace_sk_ key as `Authorization: Bearer <key>`\. \(NACE_API_KEY needs a valid nace_sk_ key from console\.nace\.ai.*\[request_id: req_err\d+\]/, r.text);
 assert.ok(!r.text.includes(REVOKED_KEY), "key leaked into tool output");
 assert.equal(posts().length, 1, "401 is neither retried nor sent to a fallback model");
 r = await s.call("list_models", {});
@@ -400,15 +420,14 @@ r = await s.call("locate_in_files", { paths: ["src/a.js"], query, snippets: 0 })
 assert.ok(openrouter.find((x) => x.method === "POST").body.questions.hit.instructions.includes(png));
 await s.close();
 
-// ... but strips for nace-ai/ models, which Drex serves behind OpenRouter
+// ... nace-ai/ models included: OpenRouter requests are unchanged unless stripping is switched on
 s = await start(both);
 reset();
 r = await s.call("decide_files", { paths: ["logo.svg"], questions: yesNo, model: "nace-ai/drex-v2.0" });
-content = openrouter.find((x) => x.method === "POST").body.state.content;
-assert.ok(content.includes("[base64 image omitted]") && !content.includes(png), content);
+assert.equal(openrouter.find((x) => x.method === "POST").body.state.content, svg);
 reset();
 r = await s.call("locate_in_files", { paths: ["src/a.js"], query, snippets: 0, model: "nace-ai/drex-v2.0" });
-assert.ok(!openrouter.find((x) => x.method === "POST").body.questions.hit.instructions.includes(png));
+assert.ok(openrouter.find((x) => x.method === "POST").body.questions.hit.instructions.includes(png));
 await s.close();
 
 // ... and for any model with DECISIONS_STRIP_INLINE_MEDIA=true
@@ -418,6 +437,9 @@ r = await s.call("decide_files", { paths: ["logo.svg"], questions: yesNo });
 content = openrouter.find((x) => x.method === "POST").body.state.content;
 assert.ok(content.includes("[base64 image omitted]") && !content.includes(png), content);
 assert.equal(content.split("\n").length, svg.split("\n").length);
+reset();
+r = await s.call("locate_in_files", { paths: ["src/a.js"], query, snippets: 0, model: "nace-ai/drex-v2.0" });
+assert.ok(!openrouter.find((x) => x.method === "POST").body.questions.hit.instructions.includes(png));
 await s.close();
 
 // ---- 16. Explicit DECISIONS_MODEL picks another Drex model

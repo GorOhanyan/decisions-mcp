@@ -72,18 +72,14 @@ withEnv({ NACE_API_KEY: "nace_sk_x", DECISIONS_STRIP_INLINE_MEDIA: "false" }, ()
 withEnv({ DECISIONS_STRIP_INLINE_MEDIA: "1" }, () => assert.equal(stripInlineMediaEnabled(), true));
 withEnv({ DECISIONS_STRIP_INLINE_MEDIA: "maybe" }, () => assert.throws(() => stripInlineMediaEnabled(), /true or false/));
 
-// OpenRouter's nace-ai/ models are served by Drex too: stripping defaults on for them only.
-withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_MODEL: "nace-ai/drex-v2.0" }, () => assert.equal(stripInlineMediaEnabled(), true));
-withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_FALLBACK_MODELS: "nace-ai/drex-v2.0" }, () => assert.equal(stripInlineMediaEnabled(), true));
-withEnv({ OPENROUTER_API_KEY: "or" }, () => {
-  assert.equal(stripInlineMediaEnabled(["nace-ai/drex-v2.0"]), true);
-  assert.equal(stripInlineMediaEnabled(["cloudflare/clef"]), false);
-});
-withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_MODEL: "nace-ai/drex-v2.0", DECISIONS_STRIP_INLINE_MEDIA: "false" }, () =>
-  assert.equal(stripInlineMediaEnabled(), false),
+// OpenRouter stays off by default for every model, nace-ai/ ones included; the env opts in.
+withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_MODEL: "nace-ai/drex-v2.0" }, () => assert.equal(stripInlineMediaEnabled(), false));
+withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_FALLBACK_MODELS: "nace-ai/drex-v2.0" }, () => assert.equal(stripInlineMediaEnabled(), false));
+withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_MODEL: "nace-ai/drex-v2.0", DECISIONS_STRIP_INLINE_MEDIA: "true" }, () =>
+  assert.equal(stripInlineMediaEnabled(), true),
 );
 
-// Drex's own detector (lib/ndm-media.ts), to check stripped text would be accepted.
+// Drex's media check as documented (https://console.nace.ai/docs/drex/guides/state), to check stripped text would be accepted.
 const DREX_DATA_URL = /data:((?:image|audio|video)\/[\w.+-]+|application\/pdf)(?:;[\w.+=-]+)*;base64,/i;
 const DREX_SIGNATURES = [/^\/9j\//, /^iVBORw0KGg/, /^R0lGOD/, /^UklGR/, /^JVBERi0/, /^SUQz/, /^AAAA[A-Za-z0-9+/]{2}ZnR5cA/];
 const drexRejects = (s) => {
@@ -176,9 +172,7 @@ assert.equal(lines(forNace), lines(svg));
 assert.equal(await withEnv({ OPENROUTER_API_KEY: "or" }, read), svg, "OpenRouter text must stay byte-identical by default");
 assert.notEqual(await withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_STRIP_INLINE_MEDIA: "true" }, read), svg);
 assert.equal(await withEnv({ NACE_API_KEY: "nace_sk_x", DECISIONS_STRIP_INLINE_MEDIA: "false" }, read), svg);
-const readFor = (model) => async () => (await collectFiles({ paths: ["logo.svg"], baseDir: dir, model })).files[0].content;
-assert.notEqual(await withEnv({ OPENROUTER_API_KEY: "or" }, readFor("nace-ai/drex-v2.0")), svg, "nace-ai/ models on OpenRouter get stripped text");
-assert.equal(await withEnv({ OPENROUTER_API_KEY: "or" }, readFor("cloudflare/clef")), svg);
+assert.equal(await withEnv({ OPENROUTER_API_KEY: "or", DECISIONS_MODEL: "nace-ai/drex-v2.0" }, read), svg, "OpenRouter's nace-ai/ models get text as is too");
 fs.rmSync(dir, { recursive: true, force: true });
 
 // ---- Drex request limits are checked before anything is sent

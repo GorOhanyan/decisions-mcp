@@ -78,7 +78,6 @@ async function gather(args) {
     include: args.include?.length ? args.include : undefined,
     exclude: args.exclude || [],
     respectGitignore: args.respect_gitignore ?? true,
-    model: args.model,
   });
   const tokens = files.reduce((n, f) => n + estTokens(f.content), 0);
   return { files, skipped, tokens };

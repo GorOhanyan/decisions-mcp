@@ -64,7 +64,7 @@ function checkAllowed(absPath) {
 /**
  * Collect text files from a list of paths (files or directories).
  * `stripMedia` replaces inline base64 media with a marker, keeping line counts. Default: DECISIONS_STRIP_INLINE_MEDIA,
- * else on for Nace and for OpenRouter's nace-ai/ models (`model`, or the configured model and fallbacks).
+ * else on for Nace and off for OpenRouter.
  * Returns { files: [{path, rel, content, bytes}], skipped: [{path, reason}], root }.
  */
 export async function collectFiles({
@@ -75,8 +75,7 @@ export async function collectFiles({
   respectGitignore = true,
   maxFileBytes = Number(env("MAX_FILE_BYTES")) || 1_000_000,
   maxFiles = Number(env("MAX_FILES")) || 2000,
-  model,
-  stripMedia = stripInlineMediaEnabled(model ? [model] : undefined),
+  stripMedia = stripInlineMediaEnabled(),
 }) {
   const files = [];
   const skipped = [];

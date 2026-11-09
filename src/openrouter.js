@@ -131,10 +131,10 @@ export async function decide({ questions, state, model, signal }) {
   // Auth and credit problems are the same for every model; on Nace so is a rejected request body.
   const final = cfg.provider === "nace" ? [401, 402, 422] : [401, 402];
   const candidates = model ? [model] : [cfg.model, ...cfg.fallbacks.filter((m) => m !== cfg.model)];
+  // Media in question text is rejected like media in files, so it gets the same scrub.
+  const qs = stripInlineMediaEnabled() ? scrubStrings(questions) : questions;
   let lastErr;
   for (const m of candidates) {
-    // Media in question text is rejected like media in files, so it gets the same scrub.
-    const qs = stripInlineMediaEnabled([m]) ? scrubStrings(questions) : questions;
     try {
       return await withRetries(cfg, m, signal, (attemptSignal) => send(cfg, m, qs, state, attemptSignal));
     } catch (e) {
