@@ -37,7 +37,7 @@ function sendJson(res, status, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 const naceError = (res, status, type, message, extra = {}, headers = {}) =>
-  sendJson(res, status, { error: { type, message, ...extra }, request_id: `req_err${++rid}` }, headers);
+  sendJson(res, status, { error: { type, message, ...extra }, request_id: `req_e${String(++rid).padStart(31, "0")}` }, headers);
 
 const naceMock = http.createServer((req, res) => {
   let raw = "";
@@ -49,7 +49,7 @@ const naceMock = http.createServer((req, res) => {
     // Drex's real 401 wording; a message that echoes the key is covered by drex-test-echo-top.
     if (auth !== `Bearer ${NACE_KEY}`)
       return naceError(res, 401, "authentication_error", "Invalid API key. Pass a nace_sk_ key as `Authorization: Bearer <key>`.");
-    if (req.method === "GET" && req.url === "/v1/models") return sendJson(res, 200, { models: MODELS, request_id: `req_${++rid}` });
+    if (req.method === "GET" && req.url === "/v1/models") return sendJson(res, 200, { models: MODELS, request_id: `req_${String(++rid).padStart(32, "0")}` });
     if (req.method !== "POST" || req.url !== "/v1/systemone") return naceError(res, 404, "invalid_request_error", "not found");
     const n = (seen.get(body.model) || 0) + 1;
     seen.set(body.model, n);
@@ -89,7 +89,7 @@ const naceMock = http.createServer((req, res) => {
     if (!/^(?:drex|nacedm)-[A-Za-z0-9.-]+$/.test(body.model) || body.model === "drex-v9.9") {
       const message = `unknown model "${body.model}"; use "drex-v2.0" or "drex-latest"`;
       return naceError(res, 422, "invalid_request_error", `model: ${message}`, {
-        issues: [{ path: "model", message }, { path: "questions", message: "second issue for the test" }],
+        issues: [{ path: "model", message }, { path: "questions", message: "must contain at least one question" }],
       });
     }
     if (DATA_URL.test(JSON.stringify(body.state)) || DATA_URL.test(JSON.stringify(body.questions)))
@@ -111,7 +111,7 @@ const naceMock = http.createServer((req, res) => {
         answers[k] = { type: "score", score: 1.2, legend: q.criteria, probabilities: { 0: 0.1, 1: 0.6, 2: 0.3 }, confidence: 0.6 };
     }
     const served = body.model === "drex-latest" || body.model === "nacedm-latest" ? "drex-v2.0" : body.model;
-    sendJson(res, 200, { model: served, answers, usage: { input_tokens: 50, output_tokens: 5 }, evaluation_time_ms: 12.5, request_id: `req_${++rid}` });
+    sendJson(res, 200, { model: served, answers, usage: { input_tokens: 50, output_tokens: 5 }, evaluation_time_ms: 12.5, request_id: `req_${String(++rid).padStart(32, "0")}` });
   });
 });
 
@@ -263,14 +263,14 @@ assert.equal(nace[0].headers["x-nace-client"], `decisions-mcp/${VERSION}`);
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-402" });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 402 \(drex-test-402\): insufficient_credit: .*Billing page.*\[request_id: req_err\d+\]/, r.text);
+assert.match(r.text, /Nace 402 \(drex-test-402\): insufficient_credit: .*Billing page.*\[request_id: req_e\d{31}\]/, r.text);
 assert.equal(posts().length, 1, "402 must not be retried");
 
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-v9.9" });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 422 \(drex-v9\.9\): invalid_request_error: model: unknown model "drex-v9\.9"; use "drex-v2\.0" or "drex-latest"; questions: second issue for the test/, r.text);
-assert.match(r.text, /request_id: req_err\d+/, r.text);
+assert.match(r.text, /Nace 422 \(drex-v9\.9\): invalid_request_error: model: unknown model "drex-v9\.9"; use "drex-v2\.0" or "drex-latest"; questions: must contain at least one question/, r.text);
+assert.match(r.text, /request_id: req_e\d{31}/, r.text);
 assert.equal(posts().length, 1, "422 must not be retried");
 
 reset();
@@ -295,12 +295,12 @@ assert.ok(!r.text.includes("export const a"), `file text leaked into the error: 
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-echo-top" });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 422 \(drex-test-echo-top\): invalid_request_error: request failed \(message not shown; see the request_id\) \[request_id: req_err\d+\]/, r.text);
+assert.match(r.text, /Nace 422 \(drex-test-echo-top\): invalid_request_error: request failed \(message not shown; see the request_id\) \[request_id: req_e\d{31}\]/, r.text);
 for (const leak of ["SENTINEL_9f3a", "export const a", "could not read", NACE_KEY.slice(0, 12)]) assert.ok(!r.text.includes(leak), `"${leak}" leaked: ${r.text}`);
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-too-long" });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 422 \(drex-test-too-long\): invalid_request_error: state: exceeds the 131,072-token state limit \[request_id: req_err\d+\]/, r.text);
+assert.match(r.text, /Nace 422 \(drex-test-too-long\): invalid_request_error: state: exceeds the 131,072-token state limit \[request_id: req_e\d{31}\]/, r.text);
 assert.equal(posts().length, 1, "422 is not retried");
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"], model: "drex-test-html" });
@@ -351,7 +351,7 @@ s = await start({ ...naceEnv, NACE_API_KEY: REVOKED_KEY, DECISIONS_FALLBACK_MODE
 reset();
 r = await s.call("classify_files", { paths: ["src/a.js"], labels: ["code", "docs"] });
 assert.equal(r.isError, true);
-assert.match(r.text, /Nace 401 \(drex-max-v1\.1\): authentication_error: Invalid API key\. Pass a nace_sk_ key as `Authorization: Bearer <key>`\. \(NACE_API_KEY needs a valid nace_sk_ key from console\.nace\.ai.*\[request_id: req_err\d+\]/, r.text);
+assert.match(r.text, /Nace 401 \(drex-max-v1\.1\): authentication_error: Invalid API key\. Pass a nace_sk_ key as `Authorization: Bearer <key>`\. \(NACE_API_KEY needs a valid nace_sk_ key from console\.nace\.ai.*\[request_id: req_e\d{31}\]/, r.text);
 assert.ok(!r.text.includes(REVOKED_KEY), "key leaked into tool output");
 assert.equal(posts().length, 1, "401 is neither retried nor sent to a fallback model");
 r = await s.call("list_models", {});

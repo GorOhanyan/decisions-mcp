@@ -41,6 +41,19 @@ export function stripInlineMediaEnabled() {
   return provider() === "nace";
 }
 
+/**
+ * Throws when the key holds anything an HTTP header can't carry (spaces, line breaks, control or
+ * non-ASCII characters). fetch would otherwise fail with an error that quotes the whole header,
+ * key included.
+ */
+export function checkKey(cfg) {
+  if (cfg.apiKey && !/^[\x21-\x7e]+$/.test(cfg.apiKey)) {
+    const err = new Error(`${cfg.keyName} contains spaces, line breaks or other characters a key can't have; check how it is set`);
+    err.status = 401;
+    throw err;
+  }
+}
+
 /** Server settings. Each provider's key is only ever sent to that provider's URLs. */
 export function config() {
   const p = provider();

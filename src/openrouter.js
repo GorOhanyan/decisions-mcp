@@ -1,4 +1,4 @@
-import { config, stripInlineMediaEnabled } from "./config.js";
+import { checkKey, config, stripInlineMediaEnabled } from "./config.js";
 import { stripInlineMedia } from "./media.js";
 import { listNaceModels, naceContextOf, naceDecide } from "./nace.js";
 
@@ -127,6 +127,7 @@ function learnQuirk(model, raw, questions, sent) {
 export async function decide({ questions, state, model, signal }) {
   const cfg = config();
   if (!cfg.apiKey) throw new Error(`${cfg.keyName} is not set in the MCP server env`);
+  checkKey(cfg);
   const send = cfg.provider === "nace" ? naceDecide : openRouterDecide;
   // Auth and credit problems are the same for every model; on Nace so is a rejected request body.
   const final = cfg.provider === "nace" ? [401, 402, 422] : [401, 402];

@@ -1,4 +1,4 @@
-import { VERSION } from "./config.js";
+import { VERSION, checkKey } from "./config.js";
 
 // Direct Nace API (Drex decision models): POST /v1/systemone takes the same typed questions and
 // returns the same answer shapes as OpenRouter's Decisions API, so only transport and errors differ.
@@ -36,6 +36,7 @@ export function naceContextOf(id) {
 }
 
 function headers(cfg) {
+  checkKey(cfg);
   return {
     Authorization: `Bearer ${cfg.apiKey}`,
     "Content-Type": "application/json",
@@ -43,51 +44,129 @@ function headers(cfg) {
   };
 }
 
-// Error text that reaches tool output is built only from what Nace itself writes: the error type,
-// issue paths, short messages and the request id. Quoted values (which can echo request content)
-// are dropped unless they are Drex model ids, the key is redacted, and every piece is capped.
-const MAX_PIECE = 200;
-const redact = (s, key) => (key ? String(s).split(key).join("[redacted]") : String(s));
-function clean(s, key) {
-  let text = redact(s, key).replace(/\s+/g, " ").trim();
-  // Quoted values are kept only when every one is a Drex model id (as in "unknown model" errors);
-  // otherwise everything from the first quote to the last goes, so nested quotes can't leak.
-  const quoted = text.match(/"[^"]*"/g) || [];
-  if (text.includes('"') && !(quoted.length && quoted.every((q) => MODEL_ID.test(q.slice(1, -1))) && text.split('"').length % 2 === 1)) {
-    text = `${text.slice(0, text.indexOf('"'))}"…"${text.slice(text.lastIndexOf('"') + 1)}`;
-  }
-  return text.length > MAX_PIECE ? `${text.slice(0, MAX_PIECE)}…` : text;
-}
+// Error text that reaches tool output is built only from fixed wording: Drex's documented error types,
+// its documented messages (https://console.nace.ai/docs/drex/reference/errors) with substitutions
+// checked against strict patterns, issue paths rebuilt from known segments, and the request id.
+// Nothing Drex echoes from the request, and nothing from a transport error, is passed through.
+const ERROR_TYPES = new Set([
+  "authentication_error",
+  "insufficient_credit",
+  "payment_required",
+  "invalid_request_error",
+  "rate_limit_error",
+  "internal_error",
+  "overloaded",
+]);
+const REQUEST_ID = /^req_[0-9a-f]{32}$/;
 const token = (v, re) => (typeof v === "string" && re.test(v) ? v : undefined);
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const oneOf = (xs) => `(?:${xs.map(escape).join("|")})`;
 
-// Issues about the request text never repeat Drex's message, which could quote that text; only Drex's
-// fixed wording for media and for length is passed through
-// (https://console.nace.ai/docs/drex/reference/errors).
-const STATE_ISSUE = [
-  /^is media \([\w/.+ -]{1,60}\); (?:place supported images in the top-level images array|[\w.-]{1,40} reads text only)$/,
-  /^exceeds the [\d,]{1,12}-token (?:state |whole-request )?limit$/,
+// Substitutions: token counts are digits with thousands commas, models are Drex ids, media kinds
+// come from a closed list.
+const N = String.raw`\d{1,3}(?:,\d{3}){0,3}`;
+const MODEL = String.raw`(?:drex|nacedm)-[A-Za-z0-9.-]{1,40}`;
+const MIME = oneOf([
+  ...["png", "jpeg", "jpg", "gif", "webp", "svg+xml", "bmp", "tiff", "avif", "heic", "heif", "x-icon", "vnd.microsoft.icon"].map((s) => `image/${s}`),
+  ...["mpeg", "mp3", "wav", "x-wav", "wave", "ogg", "webm", "aac", "flac", "mp4", "x-m4a"].map((s) => `audio/${s}`),
+  ...["mp4", "webm", "ogg", "quicktime", "x-msvideo", "mpeg"].map((s) => `video/${s}`),
+  "application/pdf",
+]);
+const KIND = `(?:${MIME} data URL|base64 ${oneOf(["JPEG image", "PNG image", "GIF image", "RIFF (WebP or WAV) data", "PDF", "MP3 audio", "MP4 video"])}|"${oneOf(["image_url", "input_image", "input_audio", "input_file", "file", "image", "document"])}" content part|Gemini (?:inline_data|file_data) part)`;
+const exact = (src) => new RegExp(`^${src}$`);
+
+// Issue messages Drex itself writes, for any path.
+const ISSUE_MESSAGES = [
+  exact(String.raw`is media \(${KIND}\); (?:place supported images in the top-level images array|${MODEL} reads text only)`),
+  exact(String.raw`exceeds the ${N}-token (?:state |whole-request )?limit`),
+  exact(String.raw`request body must be at most \d{1,12} bytes`),
+  exact(String.raw`at most \d{1,4} questions allowed`),
+  exact(String.raw`must be "noul", "choice", or "score"`),
+  exact(String.raw`"box" questions are not supported; use "noul", "choice", or "score"`),
+  exact(String.raw`must be a string, or JSON nested at most \d{1,2} levels that renders to at most \d{1,9} characters`),
+  exact(String.raw`JSON instructions across all questions must render to at most \d{1,9} characters`),
+  exact(
+    oneOf([
+      "body must be JSON",
+      "body must be a JSON object",
+      "is required",
+      "must be an object",
+      "must contain at least one question",
+      "question ids must be non-empty",
+      "noul needs instructions or criteria",
+      "must be a string",
+      "must be an object with options",
+      "choice needs at least 1 option",
+      "must be a string or null",
+      "must be an array of level labels",
+      "score needs at least 1 level",
+      "invalid request",
+    ]),
+  ),
 ];
-// A top-level message without issues is shown only when it is one of Drex's own fixed sentences
-// (authentication, funds, rate limits, capacity, length); anything else gets a generic line.
-const KNOWN_MESSAGE = [
-  /^Invalid API key\. Pass a nace_sk_ key as `Authorization: Bearer <key>`\.$/,
-  /^This account (?:has insufficient available funds|has an unpaid invoice|has reached the credit limit)[\w ,.]{0,160}$/,
-  /^(?:Requests per minute exceeded|Too many concurrent requests) for this account\.$/,
-  /^(?:The free tier|Drex|Drex Max image inference) is (?:at capacity|temporarily unavailable|temporarily overloaded|not configured)[\w ,.]{0,80}$/,
-  /^The model service (?:is busy|failed to process this request)[\w ,.]{0,160}$/,
-  /^Something went wrong on our side\.$/,
-  /^Request too long: [\w ,.()-]{1,300}$/,
-  /^request body must be at most \d{1,12} bytes$/,
-  /^Invalid request\.$/,
+
+// Messages without issues: Drex's fixed sentences.
+const TOP_MESSAGES = [
+  exact(
+    oneOf([
+      "Invalid API key. Pass a nace_sk_ key as `Authorization: Bearer <key>`.",
+      "This account has insufficient available funds. Add funds to keep going.",
+      "This account has an unpaid invoice. Pay it on the Billing page to keep going.",
+      "This account has reached the credit limit in its Nace agreement, or the agreement has ended. Contact your Nace account team.",
+      "Requests per minute exceeded for this account.",
+      "Too many concurrent requests for this account.",
+      "The free tier is at capacity. Retry shortly.",
+      "Drex is at capacity. Retry shortly.",
+      "Drex is temporarily unavailable. Retry shortly.",
+      "Drex is temporarily unavailable. Retry after 30 seconds.",
+      "Drex is temporarily overloaded. Retry after a few seconds.",
+      "Drex Max image inference is not configured on this deployment.",
+      "The model service failed to process this request. Retry with backoff, and contact support with the request_id if it keeps failing.",
+      "Something went wrong on our side.",
+      "Invalid request.",
+    ]),
+  ),
+  exact(String.raw`Request too long: the state exceeds the ${N}-token state limit of ${MODEL}\. Shorten the state\.`),
+  exact(String.raw`Request too long: the state plus its longest question exceed the ${N}-token limit of ${MODEL}\. Shorten the state or that question\.`),
+  exact(
+    String.raw`Request too long: the whole request \(state, images, all questions and model formatting\) exceeds the ${N}-token limit of ${MODEL}\. Shorten the state, use fewer or smaller images, or remove or shorten questions\.`,
+  ),
 ];
 const GENERIC_MESSAGE = "request failed (message not shown; see the request_id)";
+const GENERIC_ISSUE = "rejected";
+// "unknown model" quotes the model id sent; it is shown only when that is the id this request used.
+const UNKNOWN_MODEL = exact(String.raw`unknown model "(${MODEL})"; use "${MODEL}"(?:, "${MODEL}"){0,10}(?:,? or "${MODEL}")?`);
+const known = (list, m) => typeof m === "string" && m.length <= 400 && list.some((re) => re.test(m));
+
+/**
+ * The issue path rebuilt from known segments: model, images.<n>, state, state.path / state.content,
+ * questions, questions.<id> for an id this request sent, then type / instructions / criteria and a
+ * numeric index or true / false. Anything else is cut back to the last known segment.
+ */
+function issuePath(p, ids) {
+  if (typeof p !== "string") return "request";
+  if (p === "") return "request";
+  if (p === "model") return "model";
+  if (/^images(?:\.\d{1,4})?$/.test(p)) return p;
+  if (p === "state.path" || p === "state.content") return p;
+  if (/^state\b/.test(p)) return "state";
+  if (!/^questions\b/.test(p)) return "request";
+  const id = [...ids].sort((a, b) => b.length - a.length).find((q) => p === `questions.${q}` || p.startsWith(`questions.${q}.`));
+  if (id === undefined) return "questions";
+  let out = `questions.${id}`;
+  const rest = p.slice(out.length + 1).split(".");
+  if (!["type", "instructions", "criteria"].includes(rest[0])) return out;
+  out += `.${rest[0]}`;
+  if (rest[0] === "criteria" && rest.length === 2 && /^(?:\d{1,4}|true|false)$/.test(rest[1])) out += `.${rest[1]}`;
+  return out;
+}
 
 const HINTS = {
   401: " (NACE_API_KEY needs a valid nace_sk_ key from console.nace.ai → API Keys)",
   402: " (add funds or pay the open invoice on the console Billing page)",
 };
 
-function naceError(cfg, model, status, raw, res) {
+function naceError(model, status, raw, res, ids = new Set()) {
   let body;
   try {
     body = JSON.parse(raw);
@@ -95,31 +174,50 @@ function naceError(cfg, model, status, raw, res) {
   const e = body?.error;
   let detail;
   if (e && typeof e === "object") {
-    const type = token(e.type, /^[a-z_]{1,40}$/) || "error";
-    const issues = Array.isArray(e.issues) ? e.issues.filter((i) => i && typeof i === "object").slice(0, 5) : [];
+    const type = ERROR_TYPES.has(e.type) ? e.type : "error";
+    const issues = Array.isArray(e.issues) ? e.issues.slice(0, 5) : [];
     if (issues.length) {
-      const path = (i) => token(i.path, /^[\w.[\]-]{0,100}$/);
-      const known = (i) => STATE_ISSUE.some((re) => re.test(i.message ?? ""));
-      const message = (i) => (/^state\b/.test(path(i) ?? "") && !known(i) ? "rejected" : clean(i.message ?? "", cfg.apiKey));
-      detail = `${type}: ${issues.map((i) => [path(i), message(i)].filter(Boolean).join(": ")).join("; ")}`;
+      const one = (i) => {
+        const path = issuePath(i?.path, ids);
+        const sent = typeof i?.message === "string" && UNKNOWN_MODEL.exec(i.message)?.[1] === model;
+        const message = sent || known(ISSUE_MESSAGES, i?.message) ? i.message : GENERIC_ISSUE;
+        return path === "request" && message !== GENERIC_ISSUE ? message : `${path}: ${message}`;
+      };
+      detail = `${type}: ${issues.map(one).join("; ")}`;
     } else {
-      const m = typeof e.message === "string" ? e.message.trim() : "";
-      detail = `${type}: ${KNOWN_MESSAGE.some((re) => re.test(m)) ? clean(m, cfg.apiKey) : GENERIC_MESSAGE}`;
+      detail = `${type}: ${known(TOP_MESSAGES, e.message) ? e.message : GENERIC_MESSAGE}`;
     }
   } else {
     // A body that isn't Drex's JSON (a proxy or gateway page) is not shown, only its content type.
-    const ct = token((res.headers.get("content-type") || "").split(";")[0].trim(), /^[\w.+-]{1,40}\/[\w.+-]{1,60}$/);
+    const ct = token((res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase(), /^(?:text\/(?:html|plain|xml)|application\/(?:json|xml|problem\+json))$/);
     detail = `response is not JSON${ct ? ` (${ct})` : ""}`;
   }
-  const requestId = token(body?.request_id, /^[\w-]{1,80}$/) || token(res.headers.get("x-request-id"), /^[\w-]{1,80}$/);
-  const msg = `Nace ${status} (${model}): ${detail}${HINTS[status] || ""}${requestId ? ` [request_id: ${requestId}]` : ""}`;
-  const err = new Error(redact(msg, cfg.apiKey));
+  const requestId = token(body?.request_id, REQUEST_ID) || token(res.headers.get("x-request-id"), REQUEST_ID);
+  const err = new Error(`Nace ${status} (${model}): ${detail}${HINTS[status] || ""}${requestId ? ` [request_id: ${requestId}]` : ""}`);
   err.status = status;
   err.retry = status === 429 || status >= 500;
   const after = Number(res.headers.get("retry-after-ms"));
   if (after > 0) err.retryAfterMs = after;
   else if (Number(res.headers.get("retry-after")) > 0) err.retryAfterMs = Number(res.headers.get("retry-after")) * 1000;
   return err;
+}
+
+/**
+ * fetch + body read with transport failures mapped to fixed messages: their own text can carry the
+ * request's header values, the key among them, so it is never shown. An AbortError keeps its name, so
+ * timeouts and cancellations are still told apart by the caller.
+ */
+async function send(url, init, what) {
+  try {
+    const res = await fetch(url, init);
+    return { res, raw: await res.text() };
+  } catch (e) {
+    const aborted = e?.name === "AbortError" || e?.name === "TimeoutError";
+    const err = new Error(aborted ? `Nace request (${what}) was cancelled or timed out` : `Could not reach Nace (${what}): connection failed`);
+    if (aborted) err.name = e.name;
+    err.retry = !aborted;
+    throw err;
+  }
 }
 
 // Per-request limits Drex enforces (https://console.nace.ai/docs/drex/reference/limits): 512 questions
@@ -156,14 +254,12 @@ export function checkNaceLimits(model, questions) {
 export async function naceDecide(cfg, model, questions, state, signal) {
   const naceModel = toNaceModel(model);
   checkNaceLimits(naceModel, questions);
-  const res = await fetch(cfg.url, {
-    method: "POST",
-    headers: headers(cfg),
-    body: JSON.stringify({ model: naceModel, questions, state }),
-    signal,
-  });
-  const raw = await res.text();
-  if (!res.ok) throw naceError(cfg, naceModel, res.status, raw, res);
+  const { res, raw } = await send(
+    cfg.url,
+    { method: "POST", headers: headers(cfg), body: JSON.stringify({ model: naceModel, questions, state }), signal },
+    naceModel,
+  );
+  if (!res.ok) throw naceError(naceModel, res.status, raw, res, new Set(Object.keys(questions)));
   let data;
   try {
     data = JSON.parse(raw);
@@ -180,16 +276,15 @@ export async function naceDecide(cfg, model, questions, state, signal) {
       completion: data.usage?.output_tokens ?? 0,
       cost: typeof data.usage?.cost === "number" ? data.usage.cost : null,
     },
-    requestId: data.request_id || res.headers.get("x-request-id") || undefined,
+    requestId: token(data.request_id, REQUEST_ID) || token(res.headers.get("x-request-id"), REQUEST_ID),
     evaluationMs: typeof data.evaluation_time_ms === "number" ? data.evaluation_time_ms : undefined,
   };
 }
 
 /** GET /v1/models: [{id, name, context, pricePerM: null, aliasFor, retired}]. Throws on HTTP errors. */
 export async function listNaceModels(cfg) {
-  const res = await fetch(cfg.modelsUrl, { headers: headers(cfg), signal: AbortSignal.timeout(10_000) });
-  const raw = await res.text();
-  if (!res.ok) throw naceError(cfg, "models", res.status, raw, res);
+  const { res, raw } = await send(cfg.modelsUrl, { headers: headers(cfg), signal: AbortSignal.timeout(10_000) }, "models");
+  if (!res.ok) throw naceError("models", res.status, raw, res);
   let data;
   try {
     data = JSON.parse(raw);
