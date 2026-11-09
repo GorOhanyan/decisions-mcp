@@ -12,12 +12,16 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const server = path.join(here, "../src/index.js");
 
 const S = "SENTINEL9f3a";
-const KEY = `nace_sk_${"test".repeat(10)}abc`; // fake, shaped like a real key
+// A Drex-shaped model id and fragments of the key: each fits a pattern a strict filter might allow.
+const VAULT = "drex-VaultSecret9f7b";
+const KEY = `nace_sk_${"0123456789abcdef".repeat(2)}deadbeefcaf`; // fake, shaped like a real key
+const KEY_HEX = KEY.slice(8, 40); // 32 hex characters, shaped like a request id
+const KEY_MODEL = `drex-${KEY.slice(8, 30)}`;
 const FILE_TEXT = "export const secretValue = 42;";
 const STATUSES = [400, 401, 402, 403, 404, 408, 409, 413, 415, 422, 429, 500, 502, 503, 504, 529];
 
 // Error bodies that reflect the sentinel, the request and the Authorization header in every field.
-const bodies = (content, auth) => [
+const bodies = (content, auth, sent = "models") => [
   { error: { type: `${S.toLowerCase()}_type`, message: `${S} ${content} ${auth}` }, request_id: `req_${S}` },
   { error: { type: "invalid_request_error", message: `Request too long: ${S}` }, request_id: `req_${S.toLowerCase()}` },
   { error: { type: "insufficient_credit", message: `This account has insufficient available funds. ${S}` } },
@@ -76,6 +80,34 @@ const bodies = (content, auth) => [
       ],
     },
   },
+  // Drex's real templates with upstream-chosen model ids and key fragments in the substitutions
+  {
+    error: { type: "invalid_request_error", message: `Request too long: the state exceeds the 131,072-token state limit of ${VAULT}. Shorten the state.` },
+    request_id: `req_${KEY_HEX}`,
+  },
+  {
+    error: {
+      type: "invalid_request_error",
+      message: S,
+      issues: [
+        { path: "state", message: `is media (image/png data URL); ${VAULT} reads text only` },
+        { path: "model", message: `unknown model "${sent}"; use "drex-v2.0", "${VAULT}" or "drex-latest"` },
+        { path: "model", message: `unknown model "${VAULT}"; use "drex-v2.0"` },
+        { path: "state.content", message: `is media (base64 PNG image); ${KEY_MODEL} reads text only` },
+        { path: "model", message: `unknown model "${sent}"; use "${KEY_MODEL}"` },
+      ],
+    },
+  },
+  {
+    $rid: `req_${KEY_HEX}`,
+    error: {
+      type: "invalid_request_error",
+      message: `Request too long: the whole request (state, images, all questions and model formatting) exceeds the 262,144-token limit of ${KEY_MODEL}. Shorten the state, use fewer or smaller images, or remove or shorten questions.`,
+    },
+  },
+  {
+    error: { type: "invalid_request_error", message: `Request too long: the state plus its longest question exceed the 262,144-token limit of ${VAULT}. Shorten the state or that question.` },
+  },
 ];
 const N_BODIES = bodies("", "").length;
 
@@ -86,6 +118,7 @@ const mock = http.createServer((req, res) => {
   req.on("end", () => {
     const auth = req.headers.authorization || "";
     const content = raw ? JSON.parse(raw).state?.content || "" : "";
+    const sent = raw ? JSON.parse(raw).model : "models";
     seen.push({ method: req.method, url: req.url });
     // /v1/systemone: the scenario is in the model id; /v1/models: in the query.
     const m = /(?:drex-sentinel-|[?&]s=)(\d{3}|html)-(\d+)/.exec(raw ? JSON.parse(raw).model : req.url);
@@ -101,8 +134,9 @@ const mock = http.createServer((req, res) => {
       res.writeHead(Number(k), { "Content-Type": `text/${S.toLowerCase()}`, "x-request-id": S });
       return res.end(`<html>${S} ${content} ${auth}</html>`);
     }
-    res.writeHead(Number(status), { "Content-Type": "application/json", "x-request-id": `${S} ${auth}` });
-    res.end(JSON.stringify(bodies(content, auth)[Number(k)]));
+    const { $rid, ...body } = bodies(content, auth, sent)[Number(k)];
+    res.writeHead(Number(status), { "Content-Type": "application/json", "x-request-id": $rid ?? `${S} ${auth}` });
+    res.end(JSON.stringify(body));
   });
 });
 await new Promise((r) => mock.listen(0, "127.0.0.1", r));
@@ -119,22 +153,29 @@ const state = { path: "a.js", content: FILE_TEXT };
 // Every leak is collected, so a run against older code lists all of them at once.
 const leaks = [];
 let checked = 0;
-function check(label, text, key = KEY) {
+function check(label, result, key = KEY) {
   checked++;
+  const { rejected, text } = result;
+  const lower = text.toLowerCase();
   const found = [
-    text.toLowerCase().includes(S.toLowerCase()) && "sentinel",
+    !rejected && "no error",
+    lower.includes(S.toLowerCase()) && "sentinel",
+    lower.includes("vaultsecret") && "upstream model id",
+    text.includes(KEY.slice(8, 24)) && "key fragment",
+    text.includes(KEY_HEX) && "key-shaped request id",
     text.includes(FILE_TEXT) && "file text",
     key && text.includes(key) && "key",
     key && text.includes(key.slice(0, 16)) && "key prefix",
   ].filter(Boolean);
   if (found.length) leaks.push(`${label}: ${found.join(", ")} in ${JSON.stringify(text.slice(0, 300))}`);
 }
+// { rejected, text }: a call that resolves where it must fail is reported, not passed.
 const messageOf = async (p) => {
   try {
-    await p;
-    return "(no error)";
+    const v = await p;
+    return { rejected: false, text: JSON.stringify(v ?? null) };
   } catch (e) {
-    return String(e?.message);
+    return { rejected: true, text: String(e?.message) };
   }
 };
 
@@ -184,10 +225,12 @@ for (const [name, args] of [
   ["classify_files", { paths: ["errors.mjs"], labels: ["code", "docs"] }],
 ]) {
   const r = await client.callTool({ name, arguments: args });
-  if (r.isError !== true) leaks.push(`MCP ${name}: did not fail with a malformed key`);
-  check(`MCP ${name} bad key`, r.content.map((c) => c.text).join("\n"), badKey);
+  check(`MCP ${name} bad key`, { rejected: r.isError === true, text: r.content.map((c) => c.text).join("\n") }, badKey);
 }
 await client.close();
+
+assert.ok(checked > 300, `only ${checked} cases ran`);
+assert.deepEqual(leaks, [], `${leaks.length} of ${checked} error paths leaked:\n${leaks.join("\n")}`);
 
 // ---- 5. Drex's real wording stays readable
 const real = (body, status = 422) => {
@@ -197,11 +240,12 @@ const real = (body, status = 422) => {
   });
   return new Promise((r) => srv.listen(0, "127.0.0.1", () => r(srv)));
 };
-const realCase = async (body, expected, status = 422) => {
+const realCase = async (body, expected, status = 422, model = "drex-v2.0") => {
   const srv = await real(body, status);
-  const msg = await messageOf(naceDecide(cfg({ url: `http://127.0.0.1:${srv.address().port}/v1/systemone` }), "drex-v2.0", questions, state));
+  const { rejected, text } = await messageOf(naceDecide(cfg({ url: `http://127.0.0.1:${srv.address().port}/v1/systemone` }), model, questions, state));
   srv.close();
-  assert.match(msg, expected, msg);
+  assert.ok(rejected, text);
+  assert.match(text, expected, text);
 };
 const tooLong = "Request too long: the state exceeds the 131,072-token state limit of drex-v2.0. Shorten the state.";
 await realCase(
@@ -219,7 +263,14 @@ await realCase(
 );
 await realCase({ error: { type: "insufficient_credit", message: "This account has insufficient available funds. Add funds to keep going." } }, /insufficient_credit: This account has insufficient available funds\. Add funds to keep going\./, 402);
 
+// a model id that is neither sent nor public is replaced; the sent id and public ids are shown
+await realCase(
+  { error: { type: "invalid_request_error", message: "x", issues: [{ path: "state.content", message: "is media (image/png data URL); drex-v2.0 reads text only" }, { path: "state", message: "is media (image/png data URL); drex-v9.7 reads text only" }, { path: "model", message: 'unknown model "drex-latest"; use "drex-v2.0", "drex-v9.7"' }] } },
+  /state\.content: is media \(image\/png data URL\); drex-v2\.0 reads text only; state: is media \(image\/png data URL\); this model reads text only; model: unknown model "drex-latest"; see list_models/,
+  422,
+  "drex-latest",
+);
+await realCase({ error: { type: "invalid_request_error", message: tooLong.replace("drex-v2.0", "drex-test-x") } }, /state limit of drex-test-x\. Shorten/, 422, "drex-test-x");
+
 mock.close();
-assert.ok(checked > 300, `only ${checked} cases ran`);
-assert.deepEqual(leaks, [], `${leaks.length} of ${checked} error paths leaked:\n${leaks.join("\n")}`);
 console.log(`OK — ${checked} error paths checked, none echoes the sentinel, file text or key`);

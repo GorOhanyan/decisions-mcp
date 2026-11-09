@@ -66,6 +66,10 @@ const oneOf = (xs) => `(?:${xs.map(escape).join("|")})`;
 // come from a closed list.
 const N = String.raw`\d{1,3}(?:,\d{3}){0,3}`;
 const MODEL = String.raw`(?:drex|nacedm)-[A-Za-z0-9.-]{1,40}`;
+const M = String.raw`(?<model>${MODEL})`;
+// A model id in Drex's text is shown only when it is the id this request sent or one of the public
+// Drex ids; any other id is replaced by "this model", so the response can't place text there.
+const PUBLIC_MODELS = ["drex-v2.0", "drex-latest", "drex-max-v1.1", "drex-max-finance"];
 const MIME = oneOf([
   ...["png", "jpeg", "jpg", "gif", "webp", "svg+xml", "bmp", "tiff", "avif", "heic", "heif", "x-icon", "vnd.microsoft.icon"].map((s) => `image/${s}`),
   ...["mpeg", "mp3", "wav", "x-wav", "wave", "ogg", "webm", "aac", "flac", "mp4", "x-m4a"].map((s) => `audio/${s}`),
@@ -77,7 +81,7 @@ const exact = (src) => new RegExp(`^${src}$`);
 
 // Issue messages Drex itself writes, for any path.
 const ISSUE_MESSAGES = [
-  exact(String.raw`is media \(${KIND}\); (?:place supported images in the top-level images array|${MODEL} reads text only)`),
+  exact(String.raw`is media \(${KIND}\); (?:place supported images in the top-level images array|${M} reads text only)`),
   exact(String.raw`exceeds the ${N}-token (?:state |whole-request )?limit`),
   exact(String.raw`request body must be at most \d{1,12} bytes`),
   exact(String.raw`at most \d{1,4} questions allowed`),
@@ -126,17 +130,35 @@ const TOP_MESSAGES = [
       "Invalid request.",
     ]),
   ),
-  exact(String.raw`Request too long: the state exceeds the ${N}-token state limit of ${MODEL}\. Shorten the state\.`),
-  exact(String.raw`Request too long: the state plus its longest question exceed the ${N}-token limit of ${MODEL}\. Shorten the state or that question\.`),
+  exact(String.raw`Request too long: the state exceeds the ${N}-token state limit of ${M}\. Shorten the state\.`),
+  exact(String.raw`Request too long: the state plus its longest question exceed the ${N}-token limit of ${M}\. Shorten the state or that question\.`),
   exact(
-    String.raw`Request too long: the whole request \(state, images, all questions and model formatting\) exceeds the ${N}-token limit of ${MODEL}\. Shorten the state, use fewer or smaller images, or remove or shorten questions\.`,
+    String.raw`Request too long: the whole request \(state, images, all questions and model formatting\) exceeds the ${N}-token limit of ${M}\. Shorten the state, use fewer or smaller images, or remove or shorten questions\.`,
   ),
 ];
 const GENERIC_MESSAGE = "request failed (message not shown; see the request_id)";
 const GENERIC_ISSUE = "rejected";
-// "unknown model" quotes the model id sent; it is shown only when that is the id this request used.
-const UNKNOWN_MODEL = exact(String.raw`unknown model "(${MODEL})"; use "${MODEL}"(?:, "${MODEL}"){0,10}(?:,? or "${MODEL}")?`);
-const known = (list, m) => typeof m === "string" && m.length <= 400 && list.some((re) => re.test(m));
+// "unknown model" quotes the model id sent; it is shown only when that is the id this request used,
+// with Drex's suggestions only when every one is a public Drex id.
+const UNKNOWN_MODEL = exact(String.raw`unknown model "(${MODEL})"; use (.{1,300})`);
+const PUBLIC_LIST = exact(String.raw`"${oneOf(PUBLIC_MODELS)}"(?:, "${oneOf(PUBLIC_MODELS)}"){0,10}(?:,? or "${oneOf(PUBLIC_MODELS)}")?`);
+function unknownModel(m, sent) {
+  const x = typeof m === "string" ? UNKNOWN_MODEL.exec(m) : null;
+  if (!x || x[1] !== sent) return undefined;
+  return PUBLIC_LIST.test(x[2]) ? m : `unknown model "${sent}"; see list_models`;
+}
+
+/** `m` when it is one of `list`'s messages, with a model id that is neither sent nor public replaced; else undefined. */
+function render(list, m, sent) {
+  if (typeof m !== "string" || m.length > 400) return undefined;
+  for (const re of list) {
+    const x = re.exec(m);
+    if (!x) continue;
+    const got = x.groups?.model;
+    return !got || got === sent || PUBLIC_MODELS.includes(got) ? m : m.split(got).join("this model");
+  }
+  return undefined;
+}
 
 /**
  * The issue path rebuilt from known segments: model, images.<n>, state, state.path / state.content,
@@ -166,7 +188,7 @@ const HINTS = {
   402: " (add funds or pay the open invoice on the console Billing page)",
 };
 
-function naceError(model, status, raw, res, ids = new Set()) {
+function naceError(model, status, raw, res, key, ids = new Set()) {
   let body;
   try {
     body = JSON.parse(raw);
@@ -179,20 +201,21 @@ function naceError(model, status, raw, res, ids = new Set()) {
     if (issues.length) {
       const one = (i) => {
         const path = issuePath(i?.path, ids);
-        const sent = typeof i?.message === "string" && UNKNOWN_MODEL.exec(i.message)?.[1] === model;
-        const message = sent || known(ISSUE_MESSAGES, i?.message) ? i.message : GENERIC_ISSUE;
+        const message = unknownModel(i?.message, model) ?? render(ISSUE_MESSAGES, i?.message, model) ?? GENERIC_ISSUE;
         return path === "request" && message !== GENERIC_ISSUE ? message : `${path}: ${message}`;
       };
       detail = `${type}: ${issues.map(one).join("; ")}`;
     } else {
-      detail = `${type}: ${known(TOP_MESSAGES, e.message) ? e.message : GENERIC_MESSAGE}`;
+      detail = `${type}: ${render(TOP_MESSAGES, e.message, model) ?? GENERIC_MESSAGE}`;
     }
   } else {
     // A body that isn't Drex's JSON (a proxy or gateway page) is not shown, only its content type.
     const ct = token((res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase(), /^(?:text\/(?:html|plain|xml)|application\/(?:json|xml|problem\+json))$/);
     detail = `response is not JSON${ct ? ` (${ct})` : ""}`;
   }
-  const requestId = token(body?.request_id, REQUEST_ID) || token(res.headers.get("x-request-id"), REQUEST_ID);
+  // A request id is 32 hex characters; one that is part of the key is not shown.
+  const id = token(body?.request_id, REQUEST_ID) || token(res.headers.get("x-request-id"), REQUEST_ID);
+  const requestId = id && !(key && key.includes(id.slice(4))) ? id : undefined;
   const err = new Error(`Nace ${status} (${model}): ${detail}${HINTS[status] || ""}${requestId ? ` [request_id: ${requestId}]` : ""}`);
   err.status = status;
   err.retry = status === 429 || status >= 500;
@@ -259,7 +282,7 @@ export async function naceDecide(cfg, model, questions, state, signal) {
     { method: "POST", headers: headers(cfg), body: JSON.stringify({ model: naceModel, questions, state }), signal },
     naceModel,
   );
-  if (!res.ok) throw naceError(naceModel, res.status, raw, res, new Set(Object.keys(questions)));
+  if (!res.ok) throw naceError(naceModel, res.status, raw, res, cfg.apiKey, new Set(Object.keys(questions)));
   let data;
   try {
     data = JSON.parse(raw);
@@ -284,7 +307,7 @@ export async function naceDecide(cfg, model, questions, state, signal) {
 /** GET /v1/models: [{id, name, context, pricePerM: null, aliasFor, retired}]. Throws on HTTP errors. */
 export async function listNaceModels(cfg) {
   const { res, raw } = await send(cfg.modelsUrl, { headers: headers(cfg), signal: AbortSignal.timeout(10_000) }, "models");
-  if (!res.ok) throw naceError("models", res.status, raw, res);
+  if (!res.ok) throw naceError("models", res.status, raw, res, cfg.apiKey);
   let data;
   try {
     data = JSON.parse(raw);

@@ -202,6 +202,11 @@ async function withRetries(cfg, model, signal, attemptFn) {
       signal?.removeEventListener("abort", onAbort);
     }
     if (signal?.aborted) throw cancelled(signal);
+    // An adapted resend is not a failed attempt: no wait, and its own timeout.
+    if (err.adapt && !expired) {
+      attempt--;
+      continue;
+    }
     if (expired) {
       err = new Error(`${cfg.label} request timed out after ${cfg.timeoutMs / 1000}s (${model}); raise DECISIONS_TIMEOUT_MS if needed`);
       err.retry = true;
@@ -211,48 +216,53 @@ async function withRetries(cfg, model, signal, attemptFn) {
   }
 }
 
-/** One OpenRouter Decisions API attempt; adapts and resends on known 400s (an adaptation is not a failed attempt). */
+/**
+ * One OpenRouter Decisions API attempt. A known 400 teaches a request adaptation and throws with
+ * `adapt` set, so withRetries resends at once with a fresh timeout, as it did before Nace was added.
+ */
 async function openRouterDecide(cfg, model, questions, state, signal) {
-  for (;;) {
-    const sent = quirks.get(model) || {};
-    const res = await fetch(cfg.url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${cfg.apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/GorOhanyan/decisions-mcp",
-        "X-Title": "decisions-mcp",
-      },
-      body: JSON.stringify(adaptBody(model, questions, state)),
-      signal,
-    });
-    const raw = await res.text();
-    if (!res.ok) {
-      if (res.status === 400 && learnQuirk(model, raw, questions, sent)) continue;
-      let hint = "";
-      if (res.status === 401 && /user not found/i.test(raw))
-        hint = " (this usually means a management/provisioning key — model calls need a regular API key from openrouter.ai/keys)";
-      const err = new Error(`OpenRouter ${res.status} (${model}): ${raw.slice(0, 500)}${hint}`);
-      err.status = res.status;
-      err.retry = res.status === 429 || res.status >= 500;
+  const sent = quirks.get(model) || {};
+  const res = await fetch(cfg.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cfg.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://github.com/GorOhanyan/decisions-mcp",
+      "X-Title": "decisions-mcp",
+    },
+    body: JSON.stringify(adaptBody(model, questions, state)),
+    signal,
+  });
+  const raw = await res.text();
+  if (!res.ok) {
+    if (res.status === 400 && learnQuirk(model, raw, questions, sent)) {
+      const err = new Error(`OpenRouter 400 (${model}): request adapted, resending`);
+      err.adapt = true;
       throw err;
     }
-    const data = JSON.parse(raw);
-    if (data.error) {
-      const err = new Error(`OpenRouter error (${model}): ${JSON.stringify(data.error).slice(0, 500)}`);
-      err.retry = true;
-      throw err;
-    }
-    return {
-      answers: data.answers || {},
-      model: data.model || model,
-      usage: {
-        prompt: data.usage?.input_tokens ?? 0,
-        completion: data.usage?.output_tokens ?? 0,
-        cost: data.usage?.cost ?? 0,
-      },
-    };
+    let hint = "";
+    if (res.status === 401 && /user not found/i.test(raw))
+      hint = " (this usually means a management/provisioning key — model calls need a regular API key from openrouter.ai/keys)";
+    const err = new Error(`OpenRouter ${res.status} (${model}): ${raw.slice(0, 500)}${hint}`);
+    err.status = res.status;
+    err.retry = res.status === 429 || res.status >= 500;
+    throw err;
   }
+  const data = JSON.parse(raw);
+  if (data.error) {
+    const err = new Error(`OpenRouter error (${model}): ${JSON.stringify(data.error).slice(0, 500)}`);
+    err.retry = true;
+    throw err;
+  }
+  return {
+    answers: data.answers || {},
+    model: data.model || model,
+    usage: {
+      prompt: data.usage?.input_tokens ?? 0,
+      completion: data.usage?.output_tokens ?? 0,
+      cost: data.usage?.cost ?? 0,
+    },
+  };
 }
 
 /** Run async fn over items with limited concurrency, preserving order. */

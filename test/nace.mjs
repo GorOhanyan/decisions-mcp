@@ -123,6 +123,14 @@ const orMock = http.createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
     if (req.method === "GET") return res.end(JSON.stringify({ data: [{ id: "typesafe/jev-1.13", context_length: 64000, pricing: { prompt: "0.000000042" } }] }));
     const body = JSON.parse(raw);
+    if (body.model === "quirk-slow/model") {
+      // Answers after 80 ms; the first, unadapted request gets a 400 that teaches a string state.
+      if (typeof body.state !== "string") {
+        res.statusCode = 400;
+        return setTimeout(() => res.end(JSON.stringify({ error: { message: "state must be a string" } })), 80);
+      }
+      return setTimeout(() => res.end(JSON.stringify({ model: body.model, answers: {}, usage: { input_tokens: 5, cost: 0 } })), 80);
+    }
     const answers = {};
     for (const [k, q] of Object.entries(body.questions)) {
       if (q.type === "choice") answers[k] = { type: "choice", choice: "code", confidence: 0.97 };
@@ -502,6 +510,14 @@ reset();
 d = await decide({ questions: hit, state, model: "slow-once/model" });
 assert.equal(d.model, "slow-once/model");
 assert.equal(openrouter.filter((x) => x.method === "POST").length, 2, "the timed-out OpenRouter attempt is sent again");
+// ... and an adapted resend after a learned 400 gets its own timeout, as on main: 2 requests, no timeout
+reset();
+process.env.DECISIONS_TIMEOUT_MS = "130";
+d = await decide({ questions: hit, state, model: "quirk-slow/model" });
+assert.equal(d.model, "quirk-slow/model");
+const quirkPosts = openrouter.filter((x) => x.method === "POST");
+assert.equal(quirkPosts.length, 2, `the adapted resend must not share the first request's timeout (${quirkPosts.length} requests)`);
+assert.equal(typeof quirkPosts[1].body.state, "string");
 delete process.env.DECISIONS_TIMEOUT_MS;
 
 // OpenRouter still counts a missing cost as 0, as before
