@@ -1,32 +1,40 @@
-import { env } from "./env.js";
+import { checkKey, config, stripInlineMediaEnabled } from "./config.js";
+import { stripInlineMedia } from "./media.js";
+import { listNaceModels, naceContextOf, naceDecide } from "./nace.js";
 
-// Decision models (Jev, Clef, Mercury Decide, ...) return typed choices with probabilities, not text,
-// and are served only by OpenRouter's Decisions API (not chat/completions).
-const DEFAULT_MODEL = "typesafe/jev-1.13";
-// Used when OpenRouter doesn't report a context length for the model.
+export { config };
+
+// Used when the provider doesn't report a context length for the model.
 const DEFAULT_CONTEXT = 32_768;
-
-export function config() {
-  const list = (v) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
-  return {
-    apiKey: process.env.OPENROUTER_API_KEY,
-    url: env("DECISIONS_URL") || "https://openrouter.ai/api/alpha/decisions",
-    modelsUrl: env("MODELS_URL") || "https://openrouter.ai/api/v1/models?output_modalities=decisions",
-    model: env("MODEL") || DEFAULT_MODEL,
-    fallbacks: list(env("FALLBACK_MODELS")),
-    concurrency: Number(env("CONCURRENCY")) || 8,
-    timeoutMs: Number(env("TIMEOUT_MS")) || 120_000,
-  };
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Longest wait honoured from a retry-after-ms header.
+const MAX_RETRY_WAIT_MS = 60_000;
 
 // ---- Model catalog
 
-let catalog;
-/** All decision models OpenRouter lists: [{id, name, context, pricePerM}]. Cached; [] if the catalog is unreachable. */
+const catalogs = new Map();
+/**
+ * All decision models the provider lists: [{id, name, context, pricePerM}] (pricePerM is null when
+ * the provider doesn't publish prices). Cached per provider; [] if OpenRouter's catalog is unreachable.
+ */
 export function listDecisionModels() {
-  catalog ??= fetch(config().modelsUrl, { signal: AbortSignal.timeout(10_000) })
+  const cfg = config();
+  const cacheKey = `${cfg.provider} ${cfg.modelsUrl}`;
+  if (catalogs.has(cacheKey)) return catalogs.get(cacheKey);
+  const forget = () => {
+    catalogs.delete(cacheKey); // retry on the next call
+    return [];
+  };
+  if (cfg.provider === "nace") {
+    // Errors are passed on (with Drex's message and request_id) so list_models can show them.
+    if (!cfg.apiKey) return Promise.reject(new Error(`${cfg.keyName} is not set in the MCP server env`));
+    const p = listNaceModels(cfg).catch((e) => {
+      catalogs.delete(cacheKey);
+      throw e;
+    });
+    catalogs.set(cacheKey, p);
+    return p;
+  }
+  const catalog = fetch(cfg.modelsUrl, { signal: AbortSignal.timeout(10_000) })
     .then((r) => (r.ok ? r.json() : { data: [] }))
     .then((d) =>
       (d.data || []).map((m) => ({
@@ -36,15 +44,15 @@ export function listDecisionModels() {
         pricePerM: Number(m.pricing?.prompt || 0) * 1e6,
       })),
     )
-    .catch(() => {
-      catalog = undefined; // retry on the next call
-      return [];
-    });
+    .catch(forget);
+  catalogs.set(cacheKey, catalog);
   return catalog;
 }
 
 /** Context window of a model in tokens (falls back to a safe default). */
 export async function contextOf(model) {
+  // Drex context sizes are published, not listed by the API, so no catalog request is needed.
+  if (config().provider === "nace") return naceContextOf(model) || DEFAULT_CONTEXT;
   const m = (await listDecisionModels()).find((x) => x.id === model);
   return m?.context || DEFAULT_CONTEXT;
 }
@@ -112,89 +120,149 @@ function learnQuirk(model, raw, questions, sent) {
 }
 
 /**
- * One Decisions API request, with fallback to DECISIONS_FALLBACK_MODELS when the primary model fails.
+ * One decision request to the configured provider, with fallback to DECISIONS_FALLBACK_MODELS when the primary model fails.
  * `questions`: { key: { type: "choice"|"noul"|"score", instructions, criteria } }, `state`: { key: string }.
- * Returns { answers, model, usage: {prompt, completion, cost} }.
+ * Returns { answers, model, usage: {prompt, completion, cost} }; cost is null when Nace doesn't report it.
  */
 export async function decide({ questions, state, model, signal }) {
   const cfg = config();
-  if (!cfg.apiKey) throw new Error("OPENROUTER_API_KEY is not set in the MCP server env");
+  if (!cfg.apiKey) throw new Error(`${cfg.keyName} is not set in the MCP server env`);
+  checkKey(cfg);
+  const send = cfg.provider === "nace" ? naceDecide : openRouterDecide;
+  // Auth and credit problems are the same for every model; on Nace so is a rejected request body.
+  const final = cfg.provider === "nace" ? [401, 402, 422] : [401, 402];
   const candidates = model ? [model] : [cfg.model, ...cfg.fallbacks.filter((m) => m !== cfg.model)];
+  // Media in question text is rejected like media in files, so it gets the same scrub.
+  const qs = stripInlineMediaEnabled() ? scrubStrings(questions) : questions;
   let lastErr;
   for (const m of candidates) {
     try {
-      return await decideWith(cfg, m, questions, state, signal);
+      return await withRetries(cfg, m, signal, (attemptSignal) => send(cfg, m, qs, state, attemptSignal));
     } catch (e) {
       lastErr = e;
-      // Auth/credit problems and cancellations are the same for every model.
-      if (signal?.aborted || e.status === 401 || e.status === 402) throw e;
+      if (signal?.aborted || final.includes(e.status)) throw e;
     }
   }
   throw lastErr;
 }
 
-/** Retries on 429/5xx/network errors with exponential backoff; adapts the request on known 400s. */
-async function decideWith(cfg, model, questions, state, signal) {
-  let lastErr;
-  for (let attempt = 0; attempt < 4; attempt++) {
+function scrubStrings(v) {
+  if (typeof v === "string") return stripInlineMedia(v);
+  if (Array.isArray(v)) return v.map(scrubStrings);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrubStrings(x)]));
+  return v;
+}
+
+function cancelled(signal) {
+  if (signal.reason instanceof Error) return signal.reason;
+  const err = new Error("The request was cancelled");
+  err.name = "AbortError";
+  return err;
+}
+
+/** setTimeout as a promise that rejects as soon as `signal` aborts. */
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(cancelled(signal));
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(cancelled(signal));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/**
+ * Up to 4 attempts, each with its own DECISIONS_TIMEOUT_MS. Timed-out attempts and 429/5xx/network errors
+ * are retried with exponential backoff, or the server's retry-after-ms when longer (capped at 60 s).
+ * A cancelled call stops at once, also during a wait, and sends nothing more.
+ */
+async function withRetries(cfg, model, signal, attemptFn) {
+  for (let attempt = 0; ; attempt++) {
+    if (signal?.aborted) throw cancelled(signal);
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
+    let expired = false;
+    const timer = setTimeout(() => {
+      expired = true;
+      ctrl.abort();
+    }, cfg.timeoutMs);
     const onAbort = () => ctrl.abort();
-    signal?.addEventListener("abort", onAbort);
-    const sent = quirks.get(model) || {};
+    signal?.addEventListener("abort", onAbort, { once: true });
+    let err;
     try {
-      const res = await fetch(cfg.url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${cfg.apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://github.com/GorOhanyan/decisions-mcp",
-          "X-Title": "decisions-mcp",
-        },
-        body: JSON.stringify(adaptBody(model, questions, state)),
-        signal: ctrl.signal,
-      });
-      const raw = await res.text();
-      if (!res.ok) {
-        if (res.status === 400 && learnQuirk(model, raw, questions, sent)) {
-          attempt--; // an adaptation is not a failed attempt
-          continue;
-        }
-        let hint = "";
-        if (res.status === 401 && /user not found/i.test(raw))
-          hint = " (this usually means a management/provisioning key — model calls need a regular API key from openrouter.ai/keys)";
-        const err = new Error(`OpenRouter ${res.status} (${model}): ${raw.slice(0, 500)}${hint}`);
-        err.status = res.status;
-        err.retry = res.status === 429 || res.status >= 500;
-        throw err;
-      }
-      const data = JSON.parse(raw);
-      if (data.error) {
-        const err = new Error(`OpenRouter error (${model}): ${JSON.stringify(data.error).slice(0, 500)}`);
-        err.retry = true;
-        throw err;
-      }
-      return {
-        answers: data.answers || {},
-        model: data.model || model,
-        usage: {
-          prompt: data.usage?.input_tokens ?? 0,
-          completion: data.usage?.output_tokens ?? 0,
-          cost: data.usage?.cost ?? 0,
-        },
-      };
+      return await attemptFn(ctrl.signal);
     } catch (e) {
-      lastErr = e;
-      if (signal?.aborted) throw e;
-      const retriable = e.retry || e.name === "AbortError" || e.name === "TypeError";
-      if (!retriable || attempt === 3) throw e;
-      await sleep(1000 * 2 ** attempt);
+      err = e;
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
     }
+    if (signal?.aborted) throw cancelled(signal);
+    // An adapted resend is not a failed attempt: no wait, and its own timeout.
+    if (err.adapt && !expired) {
+      attempt--;
+      continue;
+    }
+    if (expired) {
+      err = new Error(`${cfg.label} request timed out after ${cfg.timeoutMs / 1000}s (${model}); raise DECISIONS_TIMEOUT_MS if needed`);
+      err.retry = true;
+    }
+    if (!(err.retry || err.name === "AbortError" || err.name === "TypeError") || attempt === 3) throw err;
+    await sleep(Math.max(Math.min(err.retryAfterMs || 0, MAX_RETRY_WAIT_MS), 1000 * 2 ** attempt), signal);
   }
-  throw lastErr;
+}
+
+/**
+ * One OpenRouter Decisions API attempt. A known 400 teaches a request adaptation and throws with
+ * `adapt` set, so withRetries resends at once with a fresh timeout, as it did before Nace was added.
+ */
+async function openRouterDecide(cfg, model, questions, state, signal) {
+  const sent = quirks.get(model) || {};
+  const res = await fetch(cfg.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cfg.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://github.com/GorOhanyan/decisions-mcp",
+      "X-Title": "decisions-mcp",
+    },
+    body: JSON.stringify(adaptBody(model, questions, state)),
+    signal,
+  });
+  const raw = await res.text();
+  if (!res.ok) {
+    if (res.status === 400 && learnQuirk(model, raw, questions, sent)) {
+      const err = new Error(`OpenRouter 400 (${model}): request adapted, resending`);
+      err.adapt = true;
+      throw err;
+    }
+    let hint = "";
+    if (res.status === 401 && /user not found/i.test(raw))
+      hint = " (this usually means a management/provisioning key — model calls need a regular API key from openrouter.ai/keys)";
+    const err = new Error(`OpenRouter ${res.status} (${model}): ${raw.slice(0, 500)}${hint}`);
+    err.status = res.status;
+    err.retry = res.status === 429 || res.status >= 500;
+    throw err;
+  }
+  const data = JSON.parse(raw);
+  if (data.error) {
+    const err = new Error(`OpenRouter error (${model}): ${JSON.stringify(data.error).slice(0, 500)}`);
+    err.retry = true;
+    throw err;
+  }
+  return {
+    answers: data.answers || {},
+    model: data.model || model,
+    usage: {
+      prompt: data.usage?.input_tokens ?? 0,
+      completion: data.usage?.output_tokens ?? 0,
+      cost: data.usage?.cost ?? 0,
+    },
+  };
 }
 
 /** Run async fn over items with limited concurrency, preserving order. */

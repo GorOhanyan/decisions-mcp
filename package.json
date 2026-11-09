@@ -17,7 +17,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/smoke.mjs",
+    "test": "node test/smoke.mjs && node test/config.mjs && node test/nace.mjs && node test/errors.mjs",
     "bench": "node bench/run.mjs"
   },
   "dependencies": {

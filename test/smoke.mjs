@@ -62,8 +62,10 @@ fs.writeFileSync(path.join(dir, "ignored.log"), "ignored-content\n");
 fs.writeFileSync(path.join(dir, ".gitignore"), "*.log\n");
 fs.writeFileSync(path.join(dir, "img.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0]));
 
+// The shell's provider settings must not switch this OpenRouter test to Nace or change what is sent.
+const NACE_VARS = /^(?:(?:DECISIONS|JEV)_(?:PROVIDER|NACE_URL|STRIP_INLINE_MEDIA)|NACE_API_KEY)$/;
 const env = {
-  ...process.env,
+  ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !NACE_VARS.test(k))),
   OPENROUTER_API_KEY: "test",
   DECISIONS_DECISIONS_URL: `http://127.0.0.1:${mock.address().port}/api/alpha/decisions`,
   DECISIONS_MODELS_URL: `http://127.0.0.1:${mock.address().port}/api/v1/models`,

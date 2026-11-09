@@ -4,8 +4,10 @@ import { charBudget, config, decide, pool } from "./openrouter.js";
 export const estTokens = (s) => Math.ceil(s.length / 3);
 
 
+// cost sums only the costs the provider reported (costReported says whether any was);
+// latencies are per-request round trips in ms (retries included), evalMs the provider's own timings.
 function newStats() {
-  return { calls: 0, prompt: 0, cost: 0, models: new Set() };
+  return { calls: 0, prompt: 0, cost: 0, costReported: false, models: new Set(), latencies: [], evalMs: [] };
 }
 
 export function formatStats(stats, extra = {}) {
@@ -19,10 +21,16 @@ export function formatStats(stats, extra = {}) {
 /** decide() + usage accounting; returns null instead of throwing (except on cancel) and remembers the error. */
 async function tracked(stats, args, errors) {
   try {
+    const t = Date.now();
     const r = await decide(args);
+    stats.latencies.push(Date.now() - t);
+    if (typeof r.evaluationMs === "number") stats.evalMs.push(r.evaluationMs);
     stats.calls++;
     stats.prompt += r.usage.prompt;
-    stats.cost += r.usage.cost;
+    if (typeof r.usage.cost === "number") {
+      stats.cost += r.usage.cost;
+      stats.costReported = true;
+    }
     stats.models.add(r.model);
     return r;
   } catch (e) {
@@ -81,7 +89,7 @@ function normalizeAnswer(a) {
   return { value: a.choice ?? null, confidence: +(Number(a.confidence) || 0).toFixed(2) };
 }
 
-/** Ask typed questions about each file (one Jev request per file). Returns rows [{file, answers} | {file, error}]. */
+/** Ask typed questions about each file (one decision request per file). Returns rows [{file, answers} | {file, error}]. */
 export async function decideFiles({ files, questions, instructions, maxCharsPerFile = 12000, model, signal, onProgress }) {
   const cfg = config();
   const stats = newStats();

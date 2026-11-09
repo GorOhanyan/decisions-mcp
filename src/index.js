@@ -6,9 +6,11 @@ import { z } from "zod";
 import { collectFiles } from "./files.js";
 import { classify, decideFiles, locate, estTokens, formatStats } from "./decisions.js";
 import { config, listDecisionModels } from "./openrouter.js";
+import { VERSION } from "./config.js";
+import { toNaceModel } from "./nace.js";
 import { env } from "./env.js";
 
-const INSTRUCTIONS = `Scans large amounts of text with a tiny, very cheap decision model on OpenRouter (Jev by default; Clef, Mercury Decide and others work too) so you don't have to read it yourself.
+const INSTRUCTIONS = `Scans large amounts of text with a tiny, very cheap decision model (on OpenRouter: Jev by default, Clef, Mercury Decide and others; or Drex directly through the Nace API) so you don't have to read it yourself.
 Decision models don't write text — they score and pick. Use them to narrow down WHERE to look, then read only the lines they point to:
 - locate_in_files: find where something is in many/huge files — the cause of a bug from its symptoms, the code behind a feature, where a setting lives. Returns file:line ranges with probabilities and the top snippets.
 - classify_files: sort many files into your categories.
@@ -31,7 +33,7 @@ const commonShape = {
   model: z
     .string()
     .optional()
-    .describe("Override the OpenRouter decision model for this call, e.g. cloudflare/clef (see list_models)"),
+    .describe("Override the decision model for this call, e.g. cloudflare/clef on OpenRouter or drex-v2.0 on Nace (see list_models)"),
   dry_run: z.boolean().optional().describe("Only list which files would be scanned and the estimated tokens; no API call"),
 };
 
@@ -98,7 +100,7 @@ async function guarded(fn) {
   }
 }
 
-const server = new McpServer({ name: "decisions-mcp", version: "0.4.0" }, { instructions: INSTRUCTIONS });
+const server = new McpServer({ name: "decisions-mcp", version: VERSION }, { instructions: INSTRUCTIONS });
 
 server.registerTool(
   "locate_in_files",
@@ -159,7 +161,7 @@ server.registerTool(
         windows: r.windows,
         ...(r.failed ? { "failed requests": r.failed } : {}),
       });
-      out.push(``, `---`, `Probabilities are Jev's estimate, not proof: read the code before acting.`, meta + skippedSummary(g.skipped, 5));
+      out.push(``, `---`, `Probabilities are the model's estimate, not proof: read the code before acting.`, meta + skippedSummary(g.skipped, 5));
       return text(out.join("\n"));
     }),
 );
@@ -297,24 +299,44 @@ server.registerTool(
   {
     title: "List decision models",
     description:
-      "List the decision models available on OpenRouter (id, context window, input price) and which one is the default. " +
+      "List the decision models available from the configured provider, OpenRouter or Nace (id, context window, input price) and which one is the default. " +
       "Pass an id as `model` to any other tool. Bigger context = bigger chunks per request.",
     inputSchema: {},
   },
   () =>
     guarded(async () => {
-      const models = await listDecisionModels();
-      if (!models.length) return fail("Could not load the model list from OpenRouter.");
       const cfg = config();
+      const models = await listDecisionModels();
+      if (!models.length) return fail(`Could not load the model list from ${cfg.label}.`);
+      // Nace takes OpenRouter's nace-ai/drex-* ids too, so compare normalized ids there.
+      const norm = (id) => {
+        if (cfg.provider !== "nace") return id;
+        try {
+          return toNaceModel(id);
+        } catch {
+          return id;
+        }
+      };
+      const fallbacks = cfg.fallbacks.map(norm);
       const rows = [...models]
-        .sort((a, b) => a.pricePerM - b.pricePerM || b.context - a.context)
+        .sort((a, b) => (a.pricePerM ?? 0) - (b.pricePerM ?? 0) || b.context - a.context)
         .map((m) => {
-          const tags = [m.id === cfg.model && "default", cfg.fallbacks.includes(m.id) && "fallback"].filter(Boolean);
-          return `${m.id}\t${m.context || "?"}\t$${m.pricePerM.toFixed(3)}${tags.length ? `\t(${tags.join(", ")})` : ""}`;
+          const tags = [
+            m.id === norm(cfg.model) && "default",
+            fallbacks.includes(m.id) && "fallback",
+            m.aliasFor && `${m.retired ? "retired, served by" : "alias for"} ${m.aliasFor}`,
+          ].filter(Boolean);
+          const price = m.pricePerM == null ? "?" : `$${m.pricePerM.toFixed(3)}`;
+          return `${m.id}\t${m.context || "?"}\t${price}${tags.length ? `\t(${tags.join(", ")})` : ""}`;
         });
       return text(`model\tcontext\t$/1M input\n${rows.join("\n")}`);
     }),
 );
 
 await server.connect(new StdioServerTransport());
-if (!config().apiKey) console.error("[decisions-mcp] warning: OPENROUTER_API_KEY is not set — tool calls will fail");
+try {
+  const cfg = config();
+  if (!cfg.apiKey) console.error(`[decisions-mcp] warning: ${cfg.keyName} is not set — tool calls will fail`);
+} catch (e) {
+  console.error(`[decisions-mcp] warning: ${e.message} — tool calls will fail`);
+}

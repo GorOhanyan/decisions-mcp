@@ -4,7 +4,7 @@
 
 **ИИ-агент просматривает огромные кодовые базы за доли цента — не читая их сам.**
 
-[MCP](https://modelcontextprotocol.io)-сервер, который даёт любому агенту — Claude Code, Claude Desktop, Cursor, VS Code, Codex, Windsurf — доступ к маленьким **decision-моделям** на OpenRouter: по умолчанию [Jev](https://openrouter.ai/typesafe/jev-1.13), а также [Cloudflare Clef](https://openrouter.ai/cloudflare/clef), Mercury Decide, Liquid D1 и любая другая модель Decisions API. Агент описывает, что ищет; модель просеивает каждую строку и указывает точное место.
+[MCP](https://modelcontextprotocol.io)-сервер, который даёт любому агенту — Claude Code, Claude Desktop, Cursor, VS Code, Codex, Windsurf — доступ к маленьким **decision-моделям** на OpenRouter: по умолчанию [Jev](https://openrouter.ai/typesafe/jev-1.13), а также [Cloudflare Clef](https://openrouter.ai/cloudflare/clef), Mercury Decide, Liquid D1 и любая другая модель Decisions API, либо Drex напрямую через [API Nace](#drex-напрямую-через-api-nace). Агент описывает, что ищет; модель просеивает каждую строку и указывает точное место.
 
 [![CI](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GorOhanyan/decisions-mcp/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)
@@ -78,7 +78,7 @@ flowchart LR
 | `locate_in_files` | Ищет, **где** находится описанное: баг по симптомам, код фичи, место настройки. Возвращает `файл:строки` с вероятностями, рейтинг файлов и код топ-мест | *«валидные токены получают 401 'Token has expired', а просроченные проходят»* |
 | `classify_files` | Раскладывает каждый файл по вашим меткам с уверенностью | `test`, `config`, `dead-code: неиспользуемый код`, `business-logic` |
 | `decide_files` | Несколько типизированных вопросов про каждый файл: `yes_no`, `choice`, `score`. `only_matching` — только файлы с «да» | `uses_db` (да/нет), `layer` (api/domain/ui), `complexity` (low → high) |
-| `list_models` | Decision-модели на OpenRouter с размером контекста и ценой; любой id можно передать как `model` | `cloudflare/clef`, `inception/mercury-decide` |
+| `list_models` | Decision-модели выбранного провайдера (OpenRouter или Nace) с размером контекста и ценой; любой id можно передать как `model` | `cloudflare/clef`, `inception/mercury-decide`, `drex-v2.0` |
 
 Общие параметры: `paths` (файлы и/или каталоги), `include` / `exclude` (glob), `respect_gitignore`, `model`, `dry_run` (показать, что будет просканировано, без запросов к API).
 
@@ -90,9 +90,27 @@ flowchart LR
 - **Особенности API** запоминаются после первого отказа: модели, которым нужен `state` строкой (ScaleDown, Respan) или только вопросы да/нет со строковыми критериями (Respan), работают без настройки.
 - **Резервные модели**: перечислите их в `DECISIONS_FALLBACK_MODELS` — они подхватят, если основная модель упала.
 
+## Drex напрямую через API Nace
+
+Nace сам отдаёт свои decision-модели Drex, так что их можно использовать без OpenRouter. Получите ключ `nace_sk_` на [console.nace.ai](https://console.nace.ai) → API Keys и задайте `NACE_API_KEY` вместо `OPENROUTER_API_KEY`:
+
+```bash
+claude mcp add decisions --scope user -e DECISIONS_PROVIDER=nace -e NACE_API_KEY=nace_sk_... -- node /ABS/PATH/decisions-mcp/src/index.js
+```
+
+В JSON- и TOML-конфигах из раздела [Установка](#установка) укажите `"DECISIONS_PROVIDER": "nace", "NACE_API_KEY": "nace_sk_..."` (в Codex — `DECISIONS_PROVIDER = "nace"` и `NACE_API_KEY = "nace_sk_..."`) на месте `OPENROUTER_API_KEY`.
+
+- **Выбор провайдера.** Решает `DECISIONS_PROVIDER=openrouter` или `nace`. Если переменная не задана, сервер берёт Nace, только когда задан один `NACE_API_KEY`; иначе, как и раньше, OpenRouter.
+- **Модели.** По умолчанию `drex-max-v1.1`. `drex-v2.0` и другие id `drex-*` выбираются через `DECISIONS_MODEL` или аргумент `model`; id в стиле OpenRouter, например `nace-ai/drex-v2.0`, тоже принимаются. Модели других провайдеров отклоняются до отправки запроса. `list_models` показывает модели, доступные вашему ключу.
+- **Стоимость.** API Nace возвращает оплачиваемые входные токены, но не стоимость, поэтому в итогах инструмента есть `tokens in` и нет `cost:`. Цены — на странице Pricing в консоли.
+- **Только текст.** Drex отклоняет запросы со встроенными base64-медиа, поэтому с Nace base64 `data:`-URL и встроенные base64-картинки, аудио, видео и PDF (в SVG, HTML, CSS, ноутбуках или разбитые по строкам в исходниках) перед отправкой заменяются меткой вроде `[base64 image omitted]` — и в тексте файлов, и в запросе, метках и вопросах. Ответ 422 Drex даёт только на `data:`-URL и на значение, целиком состоящее из base64-медиа; вырезание голого base64 внутри другого текста, например в CSS-файле или в картинках-выводах ноутбука, только экономит токены. Голый префикс вроде `"data:image/png;base64,"` в коде получает только пробел после `data:`. Номера строк не меняются. Запросы к OpenRouter, включая модели `nace-ai/`, отправляются как есть, если не задать `DECISIONS_STRIP_INLINE_MEDIA=true`.
+- **Лимиты.** Drex принимает не больше 512 вопросов в одном запросе, а модели Drex Max — не больше 255 вариантов в вопросе. Многометочный `classify_files` задаёт по вопросу на метку, поэтому запрос сверх этих лимитов завершается понятной ошибкой ещё до отправки.
+- **Ключи.** Ключ Nace отправляется только на `DECISIONS_NACE_URL`, ключ OpenRouter — только на адреса OpenRouter.
+- **Ошибки** показывают HTTP-статус, тип ошибки Drex, путь каждой проблемы с коротким сообщением и `request_id`. Сообщение показывается, только если это одно из документированных сообщений Drex, например «state: exceeds the 131,072-token state limit» или 422 о медиа, причём число токенов и вид медиа проверяются, а id модели показывается, только если это отправленный id или публичный id Drex; всё остальное заменяется на `rejected` или общую строку. Пути issues собираются из известных полей, а сбои соединения получают фиксированные сообщения, так что ни содержимое файлов, ни ключ никогда не повторяются в ошибке. Ключ с пробелами, переводами строк или другими управляющими символами отклоняется до отправки. Ответы о лимите запросов и перегрузке повторяются через `retry-after-ms`, который присылает Drex (не дольше 60 с). Ошибки ключа, баланса и валидации (401, 402, 422) не повторяются и не переходят на `DECISIONS_FALLBACK_MODELS`.
+
 ## Установка
 
-Нужны **Node.js 18+** и обычный **API-ключ OpenRouter** — [openrouter.ai/keys](https://openrouter.ai/keys) (management/provisioning-ключ не подойдёт).
+Нужны **Node.js 18+** и обычный **API-ключ OpenRouter** — [openrouter.ai/keys](https://openrouter.ai/keys) (management/provisioning-ключ не подойдёт). Для Drex без OpenRouter вместо него подойдёт ключ Nace (см. [выше](#drex-напрямую-через-api-nace)).
 
 ```bash
 git clone https://github.com/GorOhanyan/decisions-mcp.git
@@ -202,16 +220,20 @@ OPENROUTER_API_KEY = "sk-or-..."
 
 | Переменная | По умолчанию | Описание |
 |---|---|---|
-| `OPENROUTER_API_KEY` | — | **Обязательно** |
-| `DECISIONS_MODEL` | `typesafe/jev-1.13` | Модель по умолчанию (любой id из `list_models`) |
+| `OPENROUTER_API_KEY` | — | **Обязательно** для OpenRouter |
+| `NACE_API_KEY` | — | **Обязательно** для Nace: ключ `nace_sk_` с console.nace.ai |
+| `DECISIONS_PROVIDER` | `openrouter`; `nace`, если задан только `NACE_API_KEY` | `openrouter` или `nace` |
+| `DECISIONS_MODEL` | `typesafe/jev-1.13` (OpenRouter), `drex-max-v1.1` (Nace) | Модель по умолчанию (любой id из `list_models`) |
 | `DECISIONS_FALLBACK_MODELS` | — | Резервные модели через запятую, пробуются по очереди |
-| `DECISIONS_CONCURRENCY` | `8` | Параллельных запросов к Jev |
+| `DECISIONS_CONCURRENCY` | `8` | Параллельных запросов к модели |
 | `DECISIONS_BASE_DIR` | корень воркспейса из MCP roots, иначе cwd | От чего считать относительные пути |
 | `DECISIONS_ALLOWED_ROOTS` | — | Ограничить чтение этими каталогами (через `:`) |
 | `DECISIONS_MAX_FILE_BYTES` / `DECISIONS_MAX_FILES` | `1000000` / `2000` | Лимиты на сбор файлов |
 | `DECISIONS_ALLOW_SECRETS` | — | `1` — не исключать `.env`, ключи и т.п. (не рекомендуется) |
-| `DECISIONS_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Endpoint Decisions API |
-| `DECISIONS_MODELS_URL` | каталог decision-моделей OpenRouter | Откуда берутся размеры контекста и цены |
+| `DECISIONS_STRIP_INLINE_MEDIA` | включено для Nace, выключено для OpenRouter | `true` — заменять встроенные base64-медиа (`data:`-URL и base64-картинки, аудио, видео и PDF) в тексте файлов и вопросов короткой меткой перед отправкой; `false` — отправлять текст как есть. Ответ 422 Drex даёт только на `data:`-URL и значения, целиком состоящие из base64-медиа, поэтому вырезание голого base64 внутри CSS или ноутбуков только экономит токены |
+| `DECISIONS_DECISIONS_URL` | `https://openrouter.ai/api/alpha/decisions` | Endpoint Decisions API OpenRouter |
+| `DECISIONS_MODELS_URL` | каталог decision-моделей OpenRouter | Откуда берутся размеры контекста и цены (OpenRouter) |
+| `DECISIONS_NACE_URL` | `https://console.nace.ai` | Базовый URL API Nace |
 | `DECISIONS_TIMEOUT_MS` | `120000` | Таймаут одного запроса |
 
 ## Что никогда не уходит с машины
@@ -225,9 +247,9 @@ npm install
 npm test
 ```
 
-Тест сквозной: настоящий MCP-клиент общается с сервером по stdio, Decisions API заменён моком. Покрывает все инструменты, dry run, фильтры, исключение секретов / `.gitignore` / бинарников, полный скан большого файла с уточнением до окна строк, размер кусков под контекст модели, подстройку запроса под модель, резервные модели и определение корня через MCP roots.
+Тест сквозной: настоящий MCP-клиент общается с сервером по stdio, Decisions API заменён моком. Покрывает все инструменты, dry run, фильтры, исключение секретов / `.gitignore` / бинарников, полный скан большого файла с уточнением до окна строк, размер кусков под контекст модели, подстройку запроса под модель, резервные модели и определение корня через MCP roots. `test/nace.mjs` делает то же с моком API Nace: форма запроса и заголовки, формы ответов Drex, обработка ошибок и повторы, какой ключ попадает на какой хост, вырезание медиа. `test/config.mjs` проверяет выбор провайдера и вырезание медиа. `test/errors.mjs` прогоняет строку-маркер через каждый путь ошибки Nace (каждый код статуса, форму пути issue, не-JSON-ответ и сбой соединения) и проверяет, что ни она, ни текст файла, ни ключ не возвращаются.
 
-`npm run bench` — замер качества на реальном API (нужен `OPENROUTER_API_KEY`; около $1–2 за все модели).
+`npm run bench` — замер качества на реальном API (нужен `OPENROUTER_API_KEY`; около $1–2 за все модели). Для Nace: `DECISIONS_PROVIDER=nace NACE_API_KEY=nace_sk_... npm run bench -- --models drex-max-v1.1,drex-v2.0`. В результатах — входные токены, стоимость, которую вернул провайдер (Nace её не возвращает), и задержка запроса p50 / p95. `--price-per-m <доллары>` добавляет оценку стоимости, рассчитанную по входным токенам и помеченную как расчётная; `--tag <имя>` пишет в `bench/results/<дата>-<имя>.*` (у прогона на Nace тег по умолчанию `nace`); `--bugs 1,3` запускает только часть кейсов поиска багов.
 
 ## Лицензия
 

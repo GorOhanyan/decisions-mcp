@@ -8,12 +8,17 @@
 //   classify — client / server / shared / examples, with file paths anonymized so the model must read the code
 //
 // Usage: OPENROUTER_API_KEY=... node bench/run.mjs [--models a,b] [--tasks locate,facts,classify] [--parallel 4]
+//        DECISIONS_PROVIDER=nace NACE_API_KEY=... node bench/run.mjs [--models drex-max-v1.1,drex-v2.0] ...
+// Options:
+//   --bugs 1,3          run only these locate cases (1-based)
+//   --price-per-m 0.03  also show a calculated cost estimate: billed input tokens × this $/1M price
+//   --tag name          write results/<date>-<tag>.{json,md} (a Nace run defaults to the tag "nace")
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectFiles } from "../src/files.js";
 import { classify, decideFiles, locate } from "../src/decisions.js";
-import { charBudget, pool } from "../src/openrouter.js";
+import { charBudget, config, pool } from "../src/openrouter.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const sdkDir = path.join(root, "../node_modules/@modelcontextprotocol/sdk");
@@ -25,8 +30,10 @@ const arg = (name, def) => {
   return i > 0 ? process.argv[i + 1] : def;
 };
 
+const cfg = config();
+
 // Distinct models only (":free" and "~…-latest" aliases left out).
-const DEFAULT_MODELS = [
+const DEFAULT_OPENROUTER_MODELS = [
   "typesafe/jev-1.13",
   "cloudflare/clef",
   "cloudflare/clef-flash",
@@ -45,9 +52,14 @@ const DEFAULT_MODELS = [
   "scaledown/classify-1",
   "respan/span-01-lite",
 ];
+const DEFAULT_NACE_MODELS = ["drex-max-v1.1", "drex-v2.0"];
+const DEFAULT_MODELS = cfg.provider === "nace" ? DEFAULT_NACE_MODELS : DEFAULT_OPENROUTER_MODELS;
 const models = arg("models", DEFAULT_MODELS.join(",")).split(",").map((s) => s.trim());
 const tasks = new Set(arg("tasks", "locate,facts,classify").split(","));
 const parallel = Number(arg("parallel", 4));
+const pricePerM = arg("price-per-m") === undefined ? null : Number(arg("price-per-m"));
+if (pricePerM !== null && !(pricePerM >= 0)) throw new Error("--price-per-m must be a number of dollars per 1M input tokens");
+const tag = (arg("tag", cfg.provider === "nace" ? "nace" : "") || "").replace(/[^\w.-]+/g, "-");
 
 // ---- Task data
 
@@ -104,6 +116,9 @@ const FACTS = [
   { id: "async_code", question: "Does this code use async functions or await?", re: /\basync\b|\bawait\b/ },
 ];
 
+const bugs = arg("bugs") ? arg("bugs").split(",").map((i) => BUGS[Number(i) - 1]).filter(Boolean) : BUGS;
+if (!bugs.length) throw new Error(`--bugs takes 1-based case numbers from 1 to ${BUGS.length}`);
+
 const CLASS_LABELS = [
   "client: MCP client library code — connects to MCP servers, client transports, client-side OAuth",
   "server: MCP server library code — server runtime, server transports, server-side auth handlers and middleware",
@@ -119,11 +134,40 @@ function clip(content, maxChars) {
   return `${content.slice(0, head)}\n…[${content.length - maxChars} chars omitted]…\n${content.slice(-tail)}`;
 }
 
+// ---- Usage accounting: billed input tokens, cost only as reported by the provider (null if never
+// reported), and per-request round-trip latency (retries included) for p50/p95.
+
+const newUsage = () => ({ tokens: 0, cost: null, latencies: [], evalMs: [] });
+function addUsage(u, stats) {
+  u.tokens += stats.prompt;
+  if (stats.costReported) u.cost = (u.cost ?? 0) + stats.cost;
+  u.latencies.push(...stats.latencies);
+  u.evalMs.push(...stats.evalMs);
+}
+const percentile = (xs, p) => {
+  if (!xs.length) return null;
+  const sorted = [...xs].sort((a, b) => a - b);
+  return Math.round(sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]);
+};
+// Replaces the raw latency lists with their percentiles for the results file.
+function usageSummary(u) {
+  return {
+    inputTokens: u.tokens,
+    cost: u.cost,
+    estimatedCost: pricePerM === null ? undefined : (u.tokens / 1e6) * pricePerM,
+    requests: u.latencies.length,
+    p50ms: percentile(u.latencies, 50),
+    p95ms: percentile(u.latencies, 95),
+    evalP50ms: percentile(u.evalMs, 50) ?? undefined,
+  };
+}
+
 // ---- Runners
 
 async function runLocate(model, files) {
-  const out = { file1: 0, file3: 0, line1: 0, line3: 0, cost: 0, ms: 0, errors: 0, cases: [] };
-  for (const bug of BUGS) {
+  const out = { file1: 0, file3: 0, line1: 0, line3: 0, ms: 0, errors: 0, cases: [] };
+  const u = newUsage();
+  for (const bug of bugs) {
     const mutated = files.map((f) => {
       if (f.rel !== bug.file) return f;
       if (!f.content.includes(bug.find)) throw new Error(`bug site not found in ${bug.file}`);
@@ -135,7 +179,7 @@ async function runLocate(model, files) {
     try {
       const r = await locate({ files: mutated, query: bug.symptom, model });
       out.ms += Date.now() - t;
-      out.cost += r.stats.cost;
+      addUsage(u, r.stats);
       out.errors += r.failed;
       const fileRank = r.files.findIndex((f) => f.rel === bug.file) + 1;
       const hit = (l) => l.rel === bug.file && l.start <= bugLine && l.end >= bugLine;
@@ -151,7 +195,13 @@ async function runLocate(model, files) {
       out.cases.push({ file: bug.file, error: e.message.slice(0, 200) });
     }
   }
-  return out;
+  return { ...out, ...usageSummary(u) };
+}
+
+function usageOf(stats) {
+  const u = newUsage();
+  addUsage(u, stats);
+  return usageSummary(u);
 }
 
 async function runFacts(model, files) {
@@ -184,8 +234,8 @@ async function runFacts(model, files) {
     accuracy: tot.n ? tot.ok / tot.n : 0,
     macroF1: FACTS.reduce((s, q) => s + f1(per[q.id]), 0) / FACTS.length,
     perQuestion: Object.fromEntries(FACTS.map((q) => [q.id, +f1(per[q.id]).toFixed(3)])),
-    cost: r.stats.cost,
     ms: Date.now() - t,
+    ...usageOf(r.stats),
     errors,
   };
 }
@@ -205,7 +255,7 @@ async function runClassify(model, files) {
     else if (row.labels[0] === labelled[i].label) ok++;
   });
   if (errors === r.rows.length) throw new Error(r.rows[0]?.error || "all requests failed");
-  return { accuracy: ok / labelled.length, n: labelled.length, cost: r.stats.cost, ms: Date.now() - t, errors };
+  return { accuracy: ok / labelled.length, n: labelled.length, ms: Date.now() - t, errors, ...usageOf(r.stats) };
 }
 
 async function benchModel(model, files) {
@@ -228,13 +278,15 @@ async function benchModel(model, files) {
 // ---- Report
 
 const pct = (x) => (x === undefined ? "—" : `${Math.round(x * 100)}%`);
-const usd = (x) => (x === undefined ? "—" : `$${x.toFixed(4)}`);
+const usd = (x) => (x === undefined ? "—" : x === null ? "not reported" : `$${x.toFixed(4)}`);
+const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 
 function report(results) {
-  const n = BUGS.length;
+  const n = bugs.length;
+  const est = pricePerM !== null;
   const lines = [
-    `| Model | Bug: file #1 | Bug: file top-3 | Bug: line window #1 | Bug: line top-3 | Facts acc | Facts F1 | Classify acc | Cost | Time |`,
-    `|---|---|---|---|---|---|---|---|---|---|`,
+    `| Model | Bug: file #1 | Bug: file top-3 | Bug: line window #1 | Bug: line top-3 | Facts acc | Facts F1 | Classify acc | Input tokens | Cost (reported) |${est ? " Est. cost (calculated) |" : ""} Latency p50 / p95 | Time |`,
+    `|---|---|---|---|---|---|---|---|---|---|${est ? "---|" : ""}---|---|`,
   ];
   const score = (r) => (r.locate?.line1 ?? 0) * 10 + (r.locate?.file1 ?? 0) * 5 + (r.facts?.macroF1 ?? 0) * 10 + (r.classify?.accuracy ?? 0) * 10;
   for (const r of [...results].sort((a, b) => score(b) - score(a))) {
@@ -242,10 +294,18 @@ function report(results) {
     const loc = (k) => (L.error ? "err" : L[k] === undefined ? "—" : `${L[k]}/${n}`);
     const F = r.facts || {};
     const C = r.classify || {};
-    const cost = (L.cost || 0) + (F.cost || 0) + (C.cost || 0);
+    const parts = [L, F, C].filter((x) => x.inputTokens !== undefined);
+    const tokens = sum(parts.map((x) => x.inputTokens));
+    const costs = parts.map((x) => x.cost).filter((c) => typeof c === "number");
+    const cost = parts.length ? (costs.length ? sum(costs) : null) : undefined;
+    const estCost = est && parts.length ? usd(sum(parts.map((x) => x.estimatedCost || 0))) : "—";
+    // Percentiles are per task; the row shows the slowest task's figures.
+    const p50 = Math.max(...parts.map((x) => x.p50ms ?? 0));
+    const p95 = Math.max(...parts.map((x) => x.p95ms ?? 0));
+    const lat = parts.length ? `${p50} / ${p95} ms` : "—";
     const ms = (L.ms || 0) + (F.ms || 0) + (C.ms || 0);
     lines.push(
-      `| \`${r.model}\` | ${loc("file1")} | ${loc("file3")} | ${loc("line1")} | ${loc("line3")} | ${F.error ? "err" : pct(F.accuracy)} | ${F.error ? "err" : F.macroF1 === undefined ? "—" : F.macroF1.toFixed(2)} | ${C.error ? "n/a" : pct(C.accuracy)} | ${usd(cost)} | ${Math.round(ms / 1000)}s |`,
+      `| \`${r.model}\` | ${loc("file1")} | ${loc("file3")} | ${loc("line1")} | ${loc("line3")} | ${F.error ? "err" : pct(F.accuracy)} | ${F.error ? "err" : F.macroF1 === undefined ? "—" : F.macroF1.toFixed(2)} | ${C.error ? "n/a" : pct(C.accuracy)} | ${parts.length ? tokens : "—"} | ${usd(cost)} |${est ? ` ${estCost} |` : ""} ${lat} | ${Math.round(ms / 1000)}s |`,
     );
   }
   return lines.join("\n");
@@ -253,22 +313,42 @@ function report(results) {
 
 // ---- Main
 
-if (!process.env.OPENROUTER_API_KEY) {
-  console.error("Set OPENROUTER_API_KEY");
+if (!cfg.apiKey) {
+  console.error(`Set ${cfg.keyName}`);
   process.exit(1);
 }
 const { files } = await collectFiles({ paths: [corpusDir], include: ["**/*.js"], baseDir: corpusDir });
 const tokens = Math.round(files.reduce((s, f) => s + f.content.length, 0) / 3.5);
 process.stderr.write(`Corpus: @modelcontextprotocol/sdk@${sdkVersion} dist/esm — ${files.length} files, ~${Math.round(tokens / 1000)}k tokens\n`);
-process.stderr.write(`Models: ${models.length} · tasks: ${[...tasks].join(", ")}\n`);
+process.stderr.write(`Provider: ${cfg.label} · models: ${models.length} · tasks: ${[...tasks].join(", ")}\n`);
 
 const results = await pool(models, parallel, (m) => benchModel(m, files));
 
 const outDir = path.join(root, "results");
 fs.mkdirSync(outDir, { recursive: true });
 const stamp = new Date().toISOString().slice(0, 10);
-const meta = { date: stamp, corpus: `@modelcontextprotocol/sdk@${sdkVersion} dist/esm`, files: files.length, approxTokens: tokens, bugs: BUGS.length, facts: FACTS.map((f) => f.id) };
-fs.writeFileSync(path.join(outDir, `${stamp}.json`), JSON.stringify({ meta, results }, null, 2));
+const meta = {
+  date: stamp,
+  provider: cfg.provider,
+  tag: tag || undefined,
+  corpus: `@modelcontextprotocol/sdk@${sdkVersion} dist/esm`,
+  files: files.length,
+  approxTokens: tokens,
+  bugs: bugs.length,
+  facts: FACTS.map((f) => f.id),
+  // cost: as reported by the provider (null = not reported). estimatedCost: inputTokens × pricePerM / 1e6, calculated here.
+  pricePerM: pricePerM ?? undefined,
+};
+const name = tag ? `${stamp}-${tag}` : stamp;
+fs.writeFileSync(path.join(outDir, `${name}.json`), JSON.stringify({ meta, results }, null, 2));
 const md = report(results);
-fs.writeFileSync(path.join(outDir, `${stamp}.md`), `# Benchmark ${stamp}\n\nCorpus: ${meta.corpus}, ${meta.files} files, ~${Math.round(tokens / 1000)}k tokens.\n\n${md}\n`);
+const notes = [
+  `Provider: ${cfg.label}. Cost (reported) is what the provider returned per request${cfg.provider === "nace" ? "; the Nace API reports billed input tokens, not cost" : ""}.`,
+  pricePerM !== null ? `Est. cost (calculated) = input tokens × $${pricePerM}/1M, computed by this script, not billed figures.` : "",
+  `Latency is the per-request round trip (retries included); the row shows the slowest task's p50 / p95.`,
+].filter(Boolean);
+fs.writeFileSync(
+  path.join(outDir, `${name}.md`),
+  `# Benchmark ${stamp}${tag ? ` (${tag})` : ""}\n\nCorpus: ${meta.corpus}, ${meta.files} files, ~${Math.round(tokens / 1000)}k tokens.\n\n${md}\n\n${notes.join("\n")}\n`,
+);
 console.log(md);
